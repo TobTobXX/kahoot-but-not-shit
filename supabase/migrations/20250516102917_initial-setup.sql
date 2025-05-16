@@ -2,7 +2,6 @@
 CREATE TABLE profiles (
 	id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
 	username TEXT UNIQUE NOT NULL,
-	display_name TEXT,
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
@@ -24,8 +23,8 @@ CREATE POLICY "Users can update their own profile"
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS TRIGGER AS $$
 BEGIN
-	INSERT INTO public.profiles (id, username, display_name)
-	VALUES (new.id, new.email, new.raw_user_meta_data->>'name');
+	INSERT INTO public.profiles (id, username)
+	VALUES (new.id, new.raw_user_meta_data->>'name');
 
 	RETURN new;
 END;

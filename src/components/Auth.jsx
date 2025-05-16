@@ -25,19 +25,18 @@ const Auth = () => {
 		<div className="auth-container">
 		{!isLoggedIn ? (
 			<div className="login-form">
-			<h2>Welcome to Quiz App</h2>
-			<p>Sign in or create an account to continue</p>
-			<SupabaseAuth 
-			supabaseClient={supabase} 
-			appearance={{ theme: ThemeSupa }}
-			providers={[]}
-			/>
+				<h2>Welcome to Quiz App</h2>
+				<p>Sign in or create an account to continue</p>
+				<SupabaseAuth
+					supabaseClient={supabase} 
+					appearance={{ theme: ThemeSupa }}
+					providers={[]} />
 			</div>
 		) : (
 			<div className="welcome-message">
-			<h2>Successfully logged in!</h2>
-			<p>Welcome, <strong>{userInfo?.email}</strong></p>
-			<button onClick={handleSignOut}>Sign Out</button>
+				<h2>Successfully logged in!</h2>
+				<p>Welcome, <strong>{userInfo?.email}</strong></p>
+				<button onClick={handleSignOut}>Sign Out</button>
 			</div>
 		)}
 		</div>
