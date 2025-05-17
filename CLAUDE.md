@@ -19,20 +19,6 @@ The application allows users to:
 - Host quiz sessions with real-time participation
 - Join quiz sessions using a generated code (without account)
 
-## Common Commands
-
-### Development
-
-```bash
-# Create a new db migration
-supabase migration new <migration-name>
-
-# Push production to latest db migration
-supabase db push
-```
-
-Also, changes should be regularily commited using `git commit -m <message>`.
-
 ## Architecture
 
 ### Frontend
@@ -77,7 +63,28 @@ CREATE TABLE questions (
 );
 ```
 
-### Authentication
+## Behaviour
 
-The app uses Supabase Auth for user management:
+### Common commands
 
+Use these commands often during work to improve quality:
+
+```bash
+# Build the frontend code (and also check it)
+yarn run build
+
+# Run a dev server so the user can test functionality.
+yarn run dev
+
+# Create a new db migration
+supabase migration new <migration-name>
+```
+
+### Workflow
+
+Important:
+Changes should almost always be commited to git. Only omit this step if you are
+really sure.
+
+When database changes were made, run `supabase db push` yourself. The user will
+automatically be prompted to confirm/deny.

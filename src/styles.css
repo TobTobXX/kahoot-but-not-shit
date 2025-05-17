@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Custom styles that might be difficult to represent with Tailwind alone */
 .correct-answer {
@@ -17,4 +15,14 @@
 
 .correct-marker {
   @apply text-green-600 font-bold ml-2;
+}
+
+/* Add some base styles to ensure a good default appearance */
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Ensure buttons have consistent styling if not using Tailwind classes */
+button:not([class*="bg-"]) {
+  @apply px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700;
 }
