@@ -1,9 +1,11 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AnswerEditor from '../components/AnswerEditor';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,6 +189,52 @@ const Dashboard = () => {
     await supabase.auth.signOut();
   };
 
+  // Generate a random 6-digit code for the session
+  const generateSessionCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  // Create a new quiz session and navigate to the host page
+  const startQuizSession = async (quizId) => {
+    try {
+      // Check if the quiz has questions
+      const { data: questionCount, error: countError } = await supabase
+        .from('questions')
+        .select('id', { count: 'exact' })
+        .eq('quiz_id', quizId);
+
+      if (countError) throw countError;
+
+      if (!questionCount || questionCount.length === 0) {
+        alert('Cannot start a quiz with no questions. Please add questions first.');
+        return;
+      }
+
+      // Create a new session
+      const { data: session, error } = await supabase
+        .from('sessions')
+        .insert([
+          {
+            quiz_id: quizId,
+            host_id: user.id,
+            code: generateSessionCode(),
+            current_state: 'waiting',
+            current_question_index: 0
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Navigate to the host page
+      navigate(`/session/${session.id}`);
+    } catch (error) {
+      console.error('Error creating session:', error);
+      alert('Failed to create session. Please try again.');
+    }
+  };
+
   const toggleQuestionView = (quizId) => {
     if (showQuestions === quizId) {
       setShowQuestions(null);
@@ -329,6 +377,12 @@ const Dashboard = () => {
                               className="px-3 py-1.5 bg-gray-600 text-white rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                             >
                               {showQuestions === quiz.id ? 'Hide Questions' : 'Show Questions'}
+                            </button>
+                            <button
+                              onClick={() => startQuizSession(quiz.id)}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            >
+                              Start Quiz
                             </button>
                           </div>
                         </div>

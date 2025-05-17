@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
+import SessionHost from './pages/SessionHost';
 
 function App() {
 	const [session, setSession] = useState(null);
@@ -35,8 +36,11 @@ function App() {
 			<Routes>
 				<Route path="/" element={!session ? <Home /> : <Navigate to="/dashboard" />} />
 				<Route
-					path="/dashboard" 
+					path="/dashboard"
 					element={session ? <Dashboard /> : <Navigate to="/" />} />
+				<Route
+					path="/session/:sessionId"
+					element={session ? <SessionHost /> : <Navigate to="/" />} />
 			</Routes>
 		</BrowserRouter>
 	);
