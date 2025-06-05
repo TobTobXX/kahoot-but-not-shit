@@ -117,7 +117,7 @@ The quiz session follows a state machine pattern with the following states:
 - Host controls advancement between states
 - Real-time synchronization ensures all participants see the same state
 
-## Behaviour
+## Coding Behaviour for assistants and contributors
 
 ### Common commands
 
