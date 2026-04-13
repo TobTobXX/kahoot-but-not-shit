@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -12,21 +12,42 @@ const ANSWER_COLOURS = [
 export default function Play() {
   const { code } = useParams()
   const [nickname, setNickname] = useState(null)
+  const [sessionId, setSessionId] = useState(null)
   const [sessionState, setSessionState] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(null)
   const [questions, setQuestions] = useState([])
-  const [selectedAnswerId, setSelectedAnswerId] = useState(null)
+  const [submittedAnswerId, setSubmittedAnswerId] = useState(null)
+  const [answerSubmitted, setAnswerSubmitted] = useState(false)
+  const [alreadyAnswered, setAlreadyAnswered] = useState(false)
+  const [feedbackShown, setFeedbackShown] = useState(false)
+  const [isCorrect, setIsCorrect] = useState(null)
+  const [pointsEarned, setPointsEarned] = useState(0)
+  const [leaderboard, setLeaderboard] = useState([])
   const [error, setError] = useState(null)
 
+  const wasActiveRef = useRef(false)
+  const sessionIdRef = useRef(null)
+  const questionsRef = useRef([])
+
+  // Keep refs in sync so async callbacks always see current values
+  useEffect(() => { questionsRef.current = questions }, [questions])
+  useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
+
+  // Reset answer state when question changes
   useEffect(() => {
-    setSelectedAnswerId(null)
+    setSubmittedAnswerId(null)
+    setAnswerSubmitted(false)
+    setAlreadyAnswered(false)
+    setFeedbackShown(false)
+    setIsCorrect(null)
+    setPointsEarned(0)
   }, [currentQuestionIndex])
 
   useEffect(() => {
     async function load() {
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
-        .select('id, state, current_question_index, quiz_id')
+        .select('id, state, current_question_index, quiz_id, question_open')
         .eq('join_code', code)
         .single()
 
@@ -55,14 +76,16 @@ export default function Play() {
       setNickname(player.nickname)
       setSessionState(session.state)
       setCurrentQuestionIndex(session.current_question_index)
+      setSessionId(session.id)
+      sessionIdRef.current = session.id
 
       const quizId = session.quiz_id
-      const wasActive = session.state === 'active'
 
-      if (wasActive) {
+      if (session.state === 'active') {
+        wasActiveRef.current = true
         const { data: qs, error: qsError } = await supabase
           .from('questions')
-          .select('id, question_text, order_index, answers(id, answer_text, is_correct, order_index)')
+          .select('id, question_text, order_index, points, answers(id, answer_text, is_correct, order_index)')
           .eq('quiz_id', quizId)
           .order('order_index')
 
@@ -73,6 +96,12 @@ export default function Play() {
           answers: [...q.answers].sort((a, b) => a.order_index - b.order_index),
         }))
         setQuestions(sorted)
+        questionsRef.current = sorted
+
+        // If question is already closed when joining mid-game, show feedback
+        if (!session.question_open) {
+          setFeedbackShown(true)
+        }
       }
 
       const channel = supabase
@@ -83,14 +112,16 @@ export default function Play() {
           (payload) => {
             const newState = payload.new.state
             const newIndex = payload.new.current_question_index
+            const newQuestionOpen = payload.new.question_open
 
             setSessionState(newState)
             setCurrentQuestionIndex(newIndex)
 
-            if (!wasActive && newState === 'active') {
+            if (!wasActiveRef.current && newState === 'active') {
+              wasActiveRef.current = true
               supabase
                 .from('questions')
-                .select('id, question_text, order_index, answers(id, answer_text, is_correct, order_index)')
+                .select('id, question_text, order_index, points, answers(id, answer_text, is_correct, order_index)')
                 .eq('quiz_id', quizId)
                 .order('order_index')
                 .then(({ data, error }) => {
@@ -100,7 +131,46 @@ export default function Play() {
                     answers: [...q.answers].sort((a, b) => a.order_index - b.order_index),
                   }))
                   setQuestions(sorted)
+                  questionsRef.current = sorted
                 })
+              return
+            }
+
+            // Detect question_open transition: true → false (host closed the question)
+            if (wasActiveRef.current && newQuestionOpen === false) {
+              const oldIndex = payload.old.current_question_index ?? newIndex
+              const qs = questionsRef.current
+              const closedQuestion = qs[oldIndex]
+              const sid = sessionIdRef.current
+              const pid = localStorage.getItem('player_id')
+
+              setFeedbackShown(true)
+
+              if (closedQuestion && pid) {
+                supabase
+                  .from('player_answers')
+                  .select('answer_id, answers(is_correct)')
+                  .eq('player_id', pid)
+                  .eq('question_id', closedQuestion.id)
+                  .maybeSingle()
+                  .then(({ data: pa }) => {
+                    const correct = pa?.answers?.is_correct ?? false
+                    setIsCorrect(correct)
+                    setPointsEarned(correct ? (closedQuestion.points ?? 0) : 0)
+                  })
+              }
+
+              if (sid) {
+                supabase
+                  .from('players')
+                  .select('id, nickname, score')
+                  .eq('session_id', sid)
+                  .order('score', { ascending: false })
+                  .order('nickname')
+                  .then(({ data: lb }) => {
+                    if (lb) setLeaderboard(lb)
+                  })
+              }
             }
           }
         )
@@ -114,7 +184,54 @@ export default function Play() {
     load()
   }, [code])
 
-  // Section 8 — loading and error (before nickname is known)
+  async function submitAnswer(answer) {
+    if (answerSubmitted || alreadyAnswered) return
+
+    const playerId = localStorage.getItem('player_id')
+    const question = questionsRef.current[currentQuestionIndex]
+    if (!playerId || !question) return
+
+    setSubmittedAnswerId(answer.id)
+
+    const { error } = await supabase
+      .from('player_answers')
+      .insert({ player_id: playerId, question_id: question.id, answer_id: answer.id })
+
+    if (error) {
+      if (error.code === '23505') {
+        setAlreadyAnswered(true)
+      } else {
+        setError(error.message)
+      }
+      return
+    }
+
+    setAnswerSubmitted(true)
+  }
+
+  function answerClassName(answer) {
+    const base = 'min-h-20 rounded-xl text-white font-semibold text-lg flex items-center justify-center text-center px-4 transition-opacity'
+
+    if (feedbackShown) {
+      if (answer.is_correct) {
+        return `${base} bg-emerald-600 ring-4 ring-white`
+      }
+      if (answer.id === submittedAnswerId) {
+        return `${base} bg-red-600 ring-4 ring-white`
+      }
+      return `${base} ${ANSWER_COLOURS[answer.order_index]} opacity-40`
+    }
+
+    if (submittedAnswerId === null) {
+      return `${base} ${ANSWER_COLOURS[answer.order_index]}`
+    }
+    if (answer.id === submittedAnswerId) {
+      return `${base} ${ANSWER_COLOURS[answer.order_index]} ring-4 ring-white`
+    }
+    return `${base} ${ANSWER_COLOURS[answer.order_index]} opacity-40 cursor-not-allowed`
+  }
+
+  // Loading / error states
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4">
@@ -132,29 +249,12 @@ export default function Play() {
     )
   }
 
-  // Section 3 — shared shell
+  const playerId = localStorage.getItem('player_id')
   const question = sessionState === 'active' &&
     currentQuestionIndex !== null &&
     currentQuestionIndex < questions.length
     ? questions[currentQuestionIndex]
     : null
-
-  function handleAnswer(answer) {
-    if (selectedAnswerId !== null) return
-    setSelectedAnswerId(answer.id)
-  }
-
-  function answerClassName(answer) {
-    const base = 'min-h-20 rounded-xl text-white font-semibold text-lg flex items-center justify-center text-center px-4 transition-opacity'
-    if (selectedAnswerId === null) {
-      return `${base} ${ANSWER_COLOURS[answer.order_index]}`
-    }
-    if (answer.id === selectedAnswerId) {
-      const feedbackColour = answer.is_correct ? 'bg-emerald-600' : 'bg-red-600'
-      return `${base} ${feedbackColour} ring-4 ring-white`
-    }
-    return `${base} ${ANSWER_COLOURS[answer.order_index]} opacity-40 cursor-not-allowed`
-  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -168,7 +268,7 @@ export default function Play() {
       {/* Inner content */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
 
-        {/* Section 4 — waiting */}
+        {/* Waiting */}
         {sessionState === 'waiting' && (
           <div className="flex flex-col items-center gap-4">
             <p className="text-2xl font-semibold text-center">Waiting for the host to start…</p>
@@ -176,7 +276,7 @@ export default function Play() {
           </div>
         )}
 
-        {/* Section 7 — game over */}
+        {/* Game over */}
         {sessionState === 'finished' && (
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-4xl font-bold">Game over</p>
@@ -184,16 +284,49 @@ export default function Play() {
           </div>
         )}
 
-        {/* Section 7 — waiting to end (active but past last question) */}
-        {sessionState === 'active' && !question && (
+        {/* Active but past last question */}
+        {sessionState === 'active' && !question && !feedbackShown && (
           <div className="flex flex-col items-center gap-4">
             <p className="text-2xl font-semibold text-center">Waiting for the game to end…</p>
             <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
           </div>
         )}
 
-        {/* Sections 5 & 6 — question and answers */}
-        {question && (
+        {/* Leaderboard view (replaces question when feedback is shown) */}
+        {question && feedbackShown && (
+          <div className="w-full max-w-xl flex flex-col gap-4">
+            {/* Result banner */}
+            {isCorrect !== null && (
+              <div className={`rounded-xl px-6 py-4 text-center font-bold text-xl ${isCorrect ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                {isCorrect ? `Correct! +${pointsEarned} points` : 'Wrong'}
+              </div>
+            )}
+            {isCorrect === null && (
+              <div className="rounded-xl px-6 py-4 text-center font-bold text-xl bg-slate-700">
+                You didn't answer
+              </div>
+            )}
+
+            {/* Leaderboard */}
+            <div className="flex flex-col gap-2">
+              {leaderboard.map((p, i) => (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg ${p.id === playerId ? 'bg-indigo-700' : 'bg-slate-800'}`}
+                >
+                  <span className="text-slate-400 font-mono w-6 text-right">{i + 1}</span>
+                  <span className="flex-1 font-semibold">{p.nickname}</span>
+                  <span className="text-slate-300">{p.score}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-slate-400 text-sm text-center">Waiting for next question…</p>
+          </div>
+        )}
+
+        {/* Question and answers */}
+        {question && !feedbackShown && (
           <div className="w-full max-w-xl flex flex-col gap-6">
             <p className="text-2xl font-bold text-center leading-snug px-2">
               {question.question_text}
@@ -202,14 +335,20 @@ export default function Play() {
               {question.answers.map((answer) => (
                 <button
                   key={answer.id}
-                  onClick={() => handleAnswer(answer)}
-                  disabled={selectedAnswerId !== null}
+                  onClick={() => submitAnswer(answer)}
+                  disabled={answerSubmitted || alreadyAnswered}
                   className={answerClassName(answer)}
                 >
                   {answer.answer_text}
                 </button>
               ))}
             </div>
+            {answerSubmitted && (
+              <p className="text-center text-slate-300 text-sm">Answer submitted</p>
+            )}
+            {alreadyAnswered && (
+              <p className="text-center text-slate-400 text-sm">You already answered this question</p>
+            )}
           </div>
         )}
 
