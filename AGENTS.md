@@ -1,4 +1,4 @@
-# Claude Instructions
+# Coding Agent Instructions
 
 ## Project overview
 
