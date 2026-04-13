@@ -159,7 +159,7 @@ export default function HostSession({ sessionId }) {
   // Countdown timer — resets when a new question opens
   useEffect(() => {
     if (!questionOpen || sessionState !== 'active') {
-      setTimeRemaining(null) // eslint-disable-line react-hooks/set-state-in-effect -- intentional reset on close
+      setTimeRemaining(null)
       return
     }
     const question = hostQuestions[currentQuestionIndex]
