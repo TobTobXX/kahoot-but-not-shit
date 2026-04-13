@@ -13,7 +13,21 @@ Core quiz platform fully functional with real-time sync, server-side scoring, sp
 - Split-screen security: players receive only slot assignments (color/icon), never question/answer text (v0.8)
 - Supabase Auth for quiz creators, user-scoped RLS policies, personal quiz library (v0.9)
 
-## v0.10 — Results, polish, and full flow
+## v0.10 — Navigation overhaul
+
+Consistent navigation and exit paths across all pages. The home page is the reference point — every other page gets a full-width top bar and explicit exit. No page leaves the user stranded.
+
+- [x] Rename HostLobby (quiz picker) → HostLibrary, HostWaiting → HostLobby
+- [x] Merge /library into HostLibrary: delete button, creation date, signOut from useAuth
+- [x] HostLibrary: full-width top bar with ← Home + auth controls
+- [x] HostSession: top bar in lobby, proper end screen with both buttons, hostAgain
+- [x] Play: Back to home button in finished state
+- [x] Create/Edit: full-width top bar on main render and authError early-return
+- [x] Login: full-width ← Back to home link above the card
+- [x] Retire /library route (redirects to /host), delete Library.jsx
+- [x] Lint + build pass
+
+## v0.11 — Results, polish, and full flow
 
 Post-session results screen for the host: final leaderboard, per-question response distribution, average response time, and % correct. Host controls are complete: pause, skip, replay question. UI is polished end-to-end. The full flow works without any hardcoded values or missing pieces.
 

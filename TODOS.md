@@ -1,4 +1,4 @@
-# TODOS — v0.10 Navigation overhaul
+# TODOS — v0.10 Navigation overhaul ✓
 
 Coherent navigation across all pages. The home page is the reference point — all other pages get a consistent top bar and explicit exit paths. No page should leave the user stranded.
 
