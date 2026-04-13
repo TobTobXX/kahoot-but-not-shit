@@ -17,6 +17,56 @@ All authorization is enforced via Postgres Row Level Security (RLS) policies. Bu
 - **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time.
 - **Postgres Functions** — used for logic that must run server-side, most importantly score calculation on answer submission.
 
+## Database schema
+
+All tables have RLS enabled. Until v0.8 there are open `allow all` policies; proper user-scoped policies replace them then.
+
+### `quizzes`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `title` | text | not null |
+| `created_at` | timestamptz | default now() |
+
+### `questions`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `quiz_id` | uuid FK → quizzes | cascade delete |
+| `order_index` | integer | not null; 0-based display order |
+| `question_text` | text | not null |
+| `time_limit` | integer | seconds; default 30 |
+| `points` | integer | default 1000 |
+| `image_url` | text | nullable |
+
+### `answers`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `question_id` | uuid FK → questions | cascade delete |
+| `order_index` | integer | not null; 0-based display order |
+| `answer_text` | text | not null |
+| `is_correct` | boolean | not null; default false |
+
+### `sessions`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `quiz_id` | uuid FK → quizzes | |
+| `join_code` | text | not null; unique; 6-char uppercase alphanumeric |
+| `state` | text | `'waiting'` → `'active'` → `'finished'` |
+| `current_question_index` | integer | nullable; index into questions |
+| `created_at` | timestamptz | default now() |
+
+### `players`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | stored in client `localStorage` as `player_id` |
+| `session_id` | uuid FK → sessions | cascade delete |
+| `nickname` | text | not null |
+| `score` | integer | not null; default 0 |
+| `joined_at` | timestamptz | default now() |
+
 ## Frontend: React
 
 - **React** — UI framework. Supabase Realtime subscriptions integrate naturally with React state via `useEffect`.

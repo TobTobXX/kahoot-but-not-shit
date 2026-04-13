@@ -32,11 +32,28 @@ Work through TODOS.md top to bottom. When a task is done, check it off in TODOS.
 Most tools are not installed globally. Run them via Nix:
 
 ```
-nix run nixpkgs#nodejs     -- ...   # node, npm, npx
-nix run nixpkgs#supabase   -- ...   # supabase CLI
+nix run nixpkgs#nodejs        -- ...   # node, npm, npx
+nix run nixpkgs#supabase-cli  -- ...   # supabase CLI (note: supabase-cli, not supabase)
 ```
 
 When a command would normally be `npm install`, use `nix run nixpkgs#nodejs -- npm install` (or wrap it in `nix shell nixpkgs#nodejs` for a multi-step workflow). Apply the same pattern for any other tool that may not be on PATH.
+
+## Supabase CLI
+
+The project is linked to a remote Supabase instance (credentials stored in `supabase/.temp/`). Key commands:
+
+```
+# Apply pending migrations to the remote DB (run after writing a new migration file)
+nix run nixpkgs#supabase-cli -- db push
+
+# Pull the current remote schema as a migration (useful after dashboard changes)
+nix run nixpkgs#supabase-cli -- db pull
+
+# Diff local migrations vs remote DB schema
+nix run nixpkgs#supabase-cli -- db diff
+```
+
+Migration files live in `supabase/migrations/` and are named `<YYYYMMDDHHmmss>_<description>.sql`. Seed data is also a migration (`..._seed.sql`) since the CLI has no separate `db seed` command for remote projects.
 
 ## Git discipline
 
@@ -50,6 +67,19 @@ Example cadence:
 - Implement host page → commit
 - Implement home page → commit
 - etc.
+
+### Git commands
+
+The shell working directory is the project root, so plain `git` commands work with no flags needed. Always specify explicit file paths in `git add` — never use `git add -A` or `git add .` as these can accidentally stage untracked or sensitive files.
+
+```bash
+# Stage specific files, then commit
+git add src/pages/Host.jsx supabase/migrations/xyz.sql
+git commit -m "short description"
+
+# For changes to already-tracked files only (no new files), shorthand:
+git commit -am "short description"
+```
 
 ## Environment
 

@@ -2,6 +2,17 @@
 
 ---
 
+## Technical debt
+
+Things intentionally left rough that must be revisited in a later version:
+
+- [ ] **v0.8** — Replace open `allow all` RLS policies with proper user-scoped policies (currently every anonymous client can read and write everything)
+- [ ] **v0.8** — `player_id` in `localStorage` is unauthenticated; any client can forge a player identity
+- [ ] **future** — Join code collision is unhandled; if a duplicate code is generated the insert fails with a constraint error instead of retrying with a new code
+- [ ] **future** — Stale `waiting` sessions accumulate in the DB with no expiry or cleanup mechanism
+
+---
+
 ## 1. Project setup
 
 - [x] Initialise a Vite + React project in the repo root (`npm create vite@latest . -- --template react`)
