@@ -35,6 +35,8 @@ export default function Home() {
       return
     }
 
+    // player_id is the player's only credential — stored here and read back in Play.jsx
+    // to identify the player to Supabase without requiring an account.
     localStorage.setItem('player_id', player.id)
     navigate(`/play/${code}`)
   }

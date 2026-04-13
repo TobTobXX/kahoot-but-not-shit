@@ -7,6 +7,8 @@ export default function QuestionEditor({ index, question, onChange, onDelete, ca
     const newAnswers = question.answers.map((a, i) =>
       i === answerIndex ? { ...a, [field]: value } : a
     )
+    // Radio semantics: marking one answer correct clears is_correct on all others.
+    // (The current spec only supports a single correct answer per question.)
     if (field === 'is_correct' && value) {
       for (let i = 0; i < newAnswers.length; i++) {
         newAnswers[i] = { ...newAnswers[i], is_correct: i === answerIndex }

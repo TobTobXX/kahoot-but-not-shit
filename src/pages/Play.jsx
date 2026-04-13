@@ -14,6 +14,8 @@ export default function Play() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(null)
   const [questions, setQuestions] = useState([])
   const [submittedAnswerId, setSubmittedAnswerId] = useState(null)
+  // answerSubmitted: player just submitted in this session (optimistic UI lock).
+  // alreadyAnswered: server rejected with a duplicate-key error (answered in a prior connection).
   const [answerSubmitted, setAnswerSubmitted] = useState(false)
   const [alreadyAnswered, setAlreadyAnswered] = useState(false)
   const [feedbackShown, setFeedbackShown] = useState(false)
@@ -22,10 +24,14 @@ export default function Play() {
   const [leaderboard, setLeaderboard] = useState([])
   const [error, setError] = useState(null)
 
+  // One-way latch: flips to true the first time the session goes active so questions
+  // are fetched lazily (either on initial load or on the first realtime 'active' event).
   const wasActiveRef = useRef(false)
   const sessionIdRef = useRef(null)
   const quizIdRef = useRef(null)
   const questionsRef = useRef([])
+  // Track previous values to detect transitions inside the realtime callback, where
+  // state reads would return stale closure values.
   const prevQuestionIndexRef = useRef(null)
   const prevQuestionOpenRef = useRef(null)
   const currentQuestionSlotsRef = useRef(null)
@@ -38,6 +44,8 @@ export default function Play() {
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
   useEffect(() => { currentQuestionSlotsRef.current = currentQuestionSlots }, [currentQuestionSlots])
 
+  // slots is passed as a parameter (not read from state) because this function is
+  // called from within the realtime callback where currentQuestionSlots state may lag.
   async function loadFeedback(closedQuestion, sid, pid, slots) {
     setFeedbackShown(true)
     if (closedQuestion && pid) {
@@ -248,6 +256,8 @@ export default function Play() {
       .rpc('submit_answer', { p_player_id: playerId, p_question_id: question.id, p_answer_id: answerId })
 
     if (error) {
+      // 23505 = PostgreSQL unique_violation: player already answered this question
+      // (submitted from another tab or a previous connection).
       if (error.code === '23505') {
         setAlreadyAnswered(true)
       } else {

@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import QuestionEditor from '../components/QuestionEditor'
 import { byOrderIndex } from '../lib/utils'
 
+// crypto.randomUUID() gives each question a stable client-side ID before it's saved.
+// This ID is used as the React key and later as the upsert target when saving.
 function blankQuestion() {
   return {
     id: crypto.randomUUID(),
@@ -47,6 +49,7 @@ export default function Create() {
           setLoading(false)
           return
         }
+        // Belt-and-suspenders ownership check before RLS is tightened in v0.8.
         if (data.creator_id !== user.id) {
           setAuthError('You do not have permission to edit this quiz.')
           setLoading(false)
@@ -171,6 +174,9 @@ export default function Create() {
     navigate('/library')
   }
 
+  // Edit path: upsert questions/answers one-by-one so we can diff against the DB
+  // and issue explicit deletes for rows the user removed. A bulk replace would require
+  // cascade deletes + re-inserts, which would break foreign-key references mid-flight.
   async function handleEdit() {
     const { error: quizError } = await supabase
       .from('quizzes')

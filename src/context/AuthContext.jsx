@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext({})
 
 export function AuthProvider({ children }) {
+  // undefined = auth state not yet known; null = confirmed not logged in.
+  // ProtectedRoute checks `loading` before acting on `user` to avoid a flash redirect.
   const [user, setUser] = useState(undefined)
   const [loading, setLoading] = useState(true)
 
