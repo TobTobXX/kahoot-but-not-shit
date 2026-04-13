@@ -34,5 +34,6 @@ Items deferred to a later version. The version marker indicates the earliest poi
 - [ ] **future** — Full security audit: clients can query questions/answers for future questions before they are shown (no row-level restriction by session state), and other unenumerated cheat vectors introduced by the all-anon-read RLS posture.
 - [ ] **future** — Join code collision is unhandled; if a duplicate code is generated the insert fails with a constraint error instead of retrying with a new code.
 - [ ] **future** — Stale `waiting` sessions accumulate in the DB with no expiry or cleanup mechanism.
+- [ ] **future** — `player_${code}` localStorage entries for finished sessions are only cleared when Play.jsx receives the realtime `finished` event. If the user closes the tab before that fires, the entry lingers indefinitely. Consider a TTL-based cleanup on next read (e.g. check session state on mount in Join.jsx and clear stale entries).
 - [ ] **future** — Quiz save (insert quiz → insert questions → insert answers) runs as three separate statements. If the answers insert fails, orphaned question rows are left. Fix with an atomic Postgres RPC that does all three inserts in one transaction.
 
