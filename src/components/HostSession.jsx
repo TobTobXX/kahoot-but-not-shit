@@ -24,7 +24,26 @@ export default function HostSession({ sessionId }) {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const containerRef = useRef(null)
   const answersChannelRef = useRef(null)
+
+  // Track fullscreen state changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await containerRef.current?.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  }
 
   // Load session on mount
   useEffect(() => {
@@ -276,7 +295,7 @@ export default function HostSession({ sessionId }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div ref={containerRef} className="min-h-screen flex flex-col">
       <div className="flex justify-start px-6 py-4">
         {sessionState === 'waiting' && (
           <button
@@ -303,42 +322,43 @@ export default function HostSession({ sessionId }) {
           />
         )}
 
-        {(sessionState === 'active' || sessionState === 'finished') && (
-          <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8 flex flex-col items-center gap-6">
-            {sessionState === 'active' && (
-              <HostActiveQuestion
-                question={hostQuestions[currentQuestionIndex]}
-                currentQuestionIndex={currentQuestionIndex}
-                totalQuestions={totalQuestions}
-                timeRemaining={timeRemaining}
-                questionOpen={questionOpen}
-                slots={currentQuestionSlots}
-                answerCount={answerCount}
-                playerCount={players.length}
-                loadingSlots={loadingSlots}
-                onClose={closeQuestion}
-                onNext={nextQuestion}
-                onEnd={endGame}
-              />
-            )}
+        {sessionState === 'active' && (
+          <HostActiveQuestion
+            joinCode={joinCode}
+            question={hostQuestions[currentQuestionIndex]}
+            currentQuestionIndex={currentQuestionIndex}
+            totalQuestions={totalQuestions}
+            timeRemaining={timeRemaining}
+            questionOpen={questionOpen}
+            slots={currentQuestionSlots}
+            answerCount={answerCount}
+            playerCount={players.length}
+            loadingSlots={loadingSlots}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            onClose={closeQuestion}
+            onNext={nextQuestion}
+            onEnd={endGame}
+          />
+        )}
 
-            {sessionState === 'finished' && (
-              <div className="flex flex-col items-center gap-4 text-center">
-                <p className="text-2xl font-bold">Game over</p>
-                <button
-                  onClick={() => navigate('/host')}
-                  className="text-slate-300 hover:text-white text-sm transition-colors"
-                >
-                  Back to library
-                </button>
-                <button
-                  onClick={hostAgain}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-lg transition-colors"
-                >
-                  Host again
-                </button>
-              </div>
-            )}
+        {sessionState === 'finished' && (
+          <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8 flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <p className="text-2xl font-bold">Game over</p>
+              <button
+                onClick={() => navigate('/host')}
+                className="text-slate-300 hover:text-white text-sm transition-colors"
+              >
+                Back to library
+              </button>
+              <button
+                onClick={hostAgain}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-lg transition-colors"
+              >
+                Host again
+              </button>
+            </div>
           </div>
         )}
       </div>

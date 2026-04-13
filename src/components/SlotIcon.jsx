@@ -1,7 +1,6 @@
 // Shared icon used to represent answer slots on both the host and player screens.
 // The four shapes (circle, diamond, triangle, square) map 1:1 to the four slot positions.
-export default function SlotIcon({ name, className }) {
-  const size = 40
+export default function SlotIcon({ name, className, size = 40 }) {
   const fill = 'currentColor'
   if (name === 'circle') {
     return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><circle cx="20" cy="20" r="18" fill={fill} /></svg>

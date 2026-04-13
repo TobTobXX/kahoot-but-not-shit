@@ -6,7 +6,7 @@
 export const SLOT_COLOR_CLASSES = {
   red:    'bg-red-500',
   blue:   'bg-blue-500',
-  yellow: 'bg-amber-400',
+  yellow: 'bg-amber-600',
   green:  'bg-emerald-500',
 }
 
@@ -15,6 +15,6 @@ export const SLOT_COLOR_CLASSES = {
 export const SLOT_COLOR_HEX = {
   red:    '#FF4949',
   blue:   '#2D7DD2',
-  yellow: '#FFD60A',
+  yellow: '#E6A500',
   green:  '#2ECC71',
 }
