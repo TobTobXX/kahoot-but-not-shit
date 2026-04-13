@@ -86,43 +86,73 @@ export default function Host() {
   }
 
   return (
-    <div>
-      <h1>Host</h1>
-      {loading && <p>Loading quizzes...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <h1 className="text-3xl font-bold mb-8">Host</h1>
+
+      {loading && <p className="text-slate-400">Loading quizzes…</p>}
+      {error && <p className="text-red-400 mb-4">{error}</p>}
+
       {joinCode ? (
-        <div>
-          <p>Join code:</p>
-          <strong style={{ fontSize: '2rem' }}>{joinCode}</strong>
+        <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8 flex flex-col items-center gap-6">
+          <div className="text-center">
+            <p className="text-sm text-slate-400 mb-1">Join code</p>
+            <p className="text-6xl font-bold tracking-widest">{joinCode}</p>
+          </div>
+
           {sessionState === 'waiting' && (
-            <>
-              <p>Waiting for players...</p>
-              <button onClick={startGame}>Start game</button>
-            </>
+            <div className="flex flex-col items-center gap-4 w-full">
+              <div className="flex items-center gap-2 text-slate-400">
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className="text-sm">Waiting for players…</span>
+              </div>
+              <button
+                onClick={startGame}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors"
+              >
+                Start game
+              </button>
+            </div>
           )}
+
           {sessionState === 'active' && (
-            <>
-              <p>Question {currentQuestionIndex + 1} / {totalQuestions}</p>
-              <button onClick={nextQuestion} disabled={currentQuestionIndex >= totalQuestions - 1}>
+            <div className="flex flex-col items-center gap-4 w-full">
+              <p className="text-slate-300 text-sm">
+                Question <span className="text-white font-bold">{currentQuestionIndex + 1}</span> / {totalQuestions}
+              </p>
+              <button
+                onClick={nextQuestion}
+                disabled={currentQuestionIndex >= totalQuestions - 1}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+              >
                 Next question
               </button>
-              {' '}
-              <button onClick={endGame}>End game</button>
-            </>
+              <button
+                onClick={endGame}
+                className="w-full bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 rounded-lg transition-colors"
+              >
+                End game
+              </button>
+            </div>
           )}
-          {sessionState === 'finished' && <p>Game over.</p>}
+
+          {sessionState === 'finished' && (
+            <p className="text-2xl font-bold">Game over.</p>
+          )}
         </div>
       ) : (
-        <ul>
+        <div className="w-full max-w-sm flex flex-col gap-3">
           {quizzes.map((quiz) => (
-            <li key={quiz.id}>
-              {quiz.title}{' '}
-              <button onClick={() => createSession(quiz.id)}>
+            <div key={quiz.id} className="bg-slate-800 rounded-xl px-5 py-4 flex items-center justify-between">
+              <span className="font-medium">{quiz.title}</span>
+              <button
+                onClick={() => createSession(quiz.id)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
                 Create session
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )
