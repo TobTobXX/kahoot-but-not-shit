@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import HostWaiting from './HostWaiting'
+import HostLobby from './HostLobby'
 import HostActiveQuestion from './HostActiveQuestion'
 import { byOrderIndex } from '../lib/utils'
 
@@ -272,7 +272,7 @@ export default function HostSession({ sessionId }) {
         </div>
 
         {sessionState === 'waiting' && (
-          <HostWaiting
+          <HostLobby
             playerCount={playerCount}
             shuffleAnswers={shuffleAnswers}
             onShuffleChange={setShuffleAnswers}
