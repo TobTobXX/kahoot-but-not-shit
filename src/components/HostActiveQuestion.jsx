@@ -22,9 +22,9 @@ export default function HostActiveQuestion({
 }) {
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-900">
-      {/* Top bar: Game PIN center, question counter left */}
+      {/* Top bar: Question counter left, Game PIN center, Timer right */}
       <div className="flex items-center justify-between px-6 py-4 bg-slate-800/50">
-        <div className="text-slate-400 text-base w-32">
+        <div className="text-slate-400 text-base w-40">
           Question <span className="text-white font-bold">{currentQuestionIndex + 1}</span> / {totalQuestions}
         </div>
 
@@ -37,13 +37,20 @@ export default function HostActiveQuestion({
           )}
         </div>
 
-        <div className="w-32" />
+        {/* Timer - prominent in top right */}
+        <div className="w-40 flex justify-end">
+          {timeRemaining !== null && (
+            <div className="bg-indigo-600 text-white font-bold text-4xl px-6 py-2 rounded-full tabular-nums">
+              {timeRemaining}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Question text */}
       <div className="px-8 py-6">
         {question && (
-          <h1 className="text-5xl md:text-6xl font-bold text-center text-white leading-tight">
+          <h1 className="text-6xl md:text-7xl font-bold text-center text-white leading-tight">
             {question.question_text}
           </h1>
         )}
@@ -62,8 +69,8 @@ export default function HostActiveQuestion({
                   className="flex items-center gap-6 px-8 rounded-2xl overflow-hidden"
                   style={{ backgroundColor: SLOT_COLOR_HEX[slot.color] }}
                 >
-                  <SlotIcon name={slot.icon} className="text-white flex-shrink-0" size={64} />
-                  <span className="text-white font-bold text-3xl md:text-4xl text-center flex-1 leading-tight">
+                  <SlotIcon name={slot.icon} className="text-white flex-shrink-0" size={72} />
+                  <span className="text-white font-bold text-5xl md:text-6xl text-center flex-1 leading-tight">
                     {answer?.answer_text ?? ''}
                   </span>
                 </div>
@@ -73,16 +80,9 @@ export default function HostActiveQuestion({
         )}
       </div>
 
-      {/* Bottom bar: Timer left, controls center, fullscreen right */}
+      {/* Bottom bar: Controls center, answer count + fullscreen right */}
       <div className="flex items-center justify-between px-6 py-4 bg-slate-800/50">
-        {/* Timer */}
-        <div className="w-32">
-          {timeRemaining !== null && (
-            <div className="text-5xl font-bold text-white tabular-nums">
-              {timeRemaining}
-            </div>
-          )}
-        </div>
+        <div className="w-40" />
 
         {/* Navigation controls */}
         <div className="flex-1 flex justify-center gap-4">
@@ -109,7 +109,7 @@ export default function HostActiveQuestion({
         </div>
 
         {/* Right side: Answer count + Fullscreen */}
-        <div className="w-32 flex items-center justify-end gap-4">
+        <div className="w-40 flex items-center justify-end gap-4">
           <div className="text-slate-400 text-base text-right">
             <span className="font-bold text-white text-xl">{answerCount}</span>
             <span className="text-slate-500"> / {playerCount}</span>
