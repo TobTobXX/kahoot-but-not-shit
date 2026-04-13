@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+const ANSWER_COLOURS = [
+  'bg-rose-500',
+  'bg-blue-500',
+  'bg-amber-400',
+  'bg-emerald-500',
+]
+
 export default function Play() {
   const { code } = useParams()
   const [nickname, setNickname] = useState(null)
@@ -65,67 +72,105 @@ export default function Play() {
     load()
   }, [code])
 
-  if (error) return <p style={{ color: 'red' }}>{error}</p>
-  if (!nickname) return <p>Loading...</p>
-
-  if (sessionState === 'waiting') {
+  // Section 8 — loading and error (before nickname is known)
+  if (error) {
     return (
-      <div>
-        <p>Playing as <strong>{nickname}</strong></p>
-        <p>Waiting for the host to start...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <p className="text-red-400 text-2xl font-bold mb-2">Error</p>
+        <p className="text-slate-300">{error}</p>
       </div>
     )
   }
 
-  if (sessionState === 'finished') {
+  if (!nickname) {
     return (
-      <div>
-        <p>Playing as <strong>{nickname}</strong></p>
-        <p>Game over.</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-white border-t-transparent animate-spin" />
       </div>
     )
   }
 
-  // sessionState === 'active'
-  if (currentQuestionIndex === null || currentQuestionIndex >= questions.length) {
-    return (
-      <div>
-        <p>Playing as <strong>{nickname}</strong></p>
-        <p>Waiting for the game to end...</p>
-      </div>
-    )
-  }
-
-  const question = questions[currentQuestionIndex]
+  // Section 3 — shared shell
+  const question = sessionState === 'active' &&
+    currentQuestionIndex !== null &&
+    currentQuestionIndex < questions.length
+    ? questions[currentQuestionIndex]
+    : null
 
   function handleAnswer(answer) {
     if (selectedAnswerId !== null) return
     setSelectedAnswerId(answer.id)
   }
 
-  function answerStyle(answer) {
-    if (selectedAnswerId === null) return {}
-    if (answer.id === selectedAnswerId) {
-      return { background: answer.is_correct ? 'green' : 'red', color: 'white' }
+  function answerClassName(answer) {
+    const base = 'min-h-20 rounded-xl text-white font-semibold text-lg flex items-center justify-center text-center px-4 transition-opacity'
+    if (selectedAnswerId === null) {
+      return `${base} ${ANSWER_COLOURS[answer.order_index]}`
     }
-    return { opacity: 0.5 }
+    if (answer.id === selectedAnswerId) {
+      const feedbackColour = answer.is_correct ? 'bg-emerald-600' : 'bg-red-600'
+      return `${base} ${feedbackColour} ring-4 ring-white`
+    }
+    return `${base} ${ANSWER_COLOURS[answer.order_index]} opacity-40 cursor-not-allowed`
   }
 
   return (
-    <div>
-      <p>Playing as <strong>{nickname}</strong></p>
-      <p>{question.question_text}</p>
-      <div>
-        {question.answers.map((answer) => (
-          <button
-            key={answer.id}
-            onClick={() => handleAnswer(answer)}
-            disabled={selectedAnswerId !== null}
-            style={answerStyle(answer)}
-          >
-            {answer.answer_text}
-          </button>
-        ))}
+    <div className="min-h-screen flex flex-col">
+      {/* Top bar */}
+      <div className="px-4 py-3 border-b border-slate-700">
+        <p className="text-sm text-slate-400">
+          Playing as <strong className="text-white">{nickname}</strong>
+        </p>
+      </div>
+
+      {/* Inner content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+
+        {/* Section 4 — waiting */}
+        {sessionState === 'waiting' && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-2xl font-semibold text-center">Waiting for the host to start…</p>
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          </div>
+        )}
+
+        {/* Section 7 — game over */}
+        {sessionState === 'finished' && (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-4xl font-bold">Game over</p>
+            <p className="text-slate-300 text-lg">Thanks for playing, <strong>{nickname}</strong>!</p>
+          </div>
+        )}
+
+        {/* Section 7 — waiting to end (active but past last question) */}
+        {sessionState === 'active' && !question && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-2xl font-semibold text-center">Waiting for the game to end…</p>
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          </div>
+        )}
+
+        {/* Sections 5 & 6 — question and answers */}
+        {question && (
+          <div className="w-full max-w-xl flex flex-col gap-6">
+            <p className="text-2xl font-bold text-center leading-snug px-2">
+              {question.question_text}
+            </p>
+            <div className={`grid gap-3 ${question.answers.length === 2 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {question.answers.map((answer) => (
+                <button
+                  key={answer.id}
+                  onClick={() => handleAnswer(answer)}
+                  disabled={selectedAnswerId !== null}
+                  className={answerClassName(answer)}
+                >
+                  {answer.answer_text}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )

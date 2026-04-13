@@ -45,9 +45,9 @@ Every post-load Play screen (waiting, active, game-over) should share the same o
 
 > **Files:** `src/pages/Play.jsx` only. **Watch out:** The current structure has four early returns once state is resolved. Refactoring to a single return means moving the `if (sessionState === ...)` branches inside a common wrapper — but the loading (`!nickname`) and error early returns must remain above the shell, because `nickname` is not yet available at that point. Do not touch any JS logic or state management; this is purely a structural JSX change. **User action:** none.
 
-- [ ] Introduce a single outer container that fills the full viewport: full-height, dark background, with a narrow top bar showing "Playing as **{nickname}**" in small muted text.
-- [ ] Keep the loading and error early-returns above the shell (they fire before `nickname` is known and must have their own minimal layout).
-- [ ] All remaining states (waiting, active, active-past-end, finished) render their content inside the shared shell.
+- [x] Introduce a single outer container that fills the full viewport: full-height, dark background, with a narrow top bar showing "Playing as **{nickname}**" in small muted text.
+- [x] Keep the loading and error early-returns above the shell (they fire before `nickname` is known and must have their own minimal layout).
+- [x] All remaining states (waiting, active, active-past-end, finished) render their content inside the shared shell.
 
 ## 4. Play page — waiting screen
 
@@ -55,8 +55,8 @@ Players sit here until the host starts. It should feel calm, not frozen.
 
 > **Files:** `src/pages/Play.jsx`. **Watch out:** `animate-pulse` applies a CSS opacity animation — attach it to a small dedicated indicator element (e.g. a `w-2 h-2 rounded-full bg-white`), not directly to the status text (that would make the text flicker in a distracting way). **User action:** none.
 
-- [ ] Centred below the nickname bar: a large status line — "Waiting for the host to start…"
-- [ ] Add a simple CSS pulse animation (Tailwind's `animate-pulse` on a small indicator element) to signal the page is live and not stuck.
+- [x] Centred below the nickname bar: a large status line — "Waiting for the host to start…"
+- [x] Add a simple CSS pulse animation (Tailwind's `animate-pulse` on a small indicator element) to signal the page is live and not stuck.
 
 ## 5. Play page — question and answer layout
 
@@ -64,10 +64,10 @@ The core gameplay screen. Questions must be readable at arm's length; answer but
 
 > **Files:** `src/pages/Play.jsx`. **Watch out:** `question.answers` is already sorted by `order_index` before being stored in state (the `sorted` mapping inside `load()`), so `answer.order_index` can be used directly as the colour-array index. The grid column count should key off `question.answers.length === 2` (not question type — there is no type field in the current schema). **User action:** none.
 
-- [ ] Display the question text prominently: large font, centred, with generous vertical padding.
-- [ ] Lay out the answer buttons using CSS Grid: `grid-cols-2 gap-3` for four answers; `grid-cols-1` when there are exactly two answers (true/false), so long answer text does not overflow a narrow button.
-- [ ] Give each button substantial height (`min-h-20` or similar) and large centred text — the full area must be an easy tap target on mobile.
-- [ ] Assign a distinct pre-selection background colour to each button by its `order_index`: 0 → `bg-rose-500`, 1 → `bg-blue-500`, 2 → `bg-amber-400`, 3 → `bg-emerald-500`. Use `text-white` on all four.
+- [x] Display the question text prominently: large font, centred, with generous vertical padding.
+- [x] Lay out the answer buttons using CSS Grid: `grid-cols-2 gap-3` for four answers; `grid-cols-1` when there are exactly two answers (true/false), so long answer text does not overflow a narrow button.
+- [x] Give each button substantial height (`min-h-20` or similar) and large centred text — the full area must be an easy tap target on mobile.
+- [x] Assign a distinct pre-selection background colour to each button by its `order_index`: 0 → `bg-rose-500`, 1 → `bg-blue-500`, 2 → `bg-amber-400`, 3 → `bg-emerald-500`. Use `text-white` on all four.
 
 ## 6. Play page — answer feedback
 
@@ -75,13 +75,13 @@ Replace the current inline `style` object (`answerStyle()`) with Tailwind utilit
 
 > **Files:** `src/pages/Play.jsx`. **Watch out:** Keep the `disabled={selectedAnswerId !== null}` prop — it prevents re-answering and must not be removed. The new `className` logic needs to cover all three visual states (unselected, selected-correct, selected-wrong, and dimmed-other) without any `style` prop remaining. Tailwind's `disabled:` variant is available but is not needed here since visual dimming and disabling are handled separately. **User action:** none.
 
-- [ ] Remove the `answerStyle()` function and its `style={answerStyle(answer)}` prop entirely.
-- [ ] Compute a `className` string for each button from `selectedAnswerId`:
+- [x] Remove the `answerStyle()` function and its `style={answerStyle(answer)}` prop entirely.
+- [x] Compute a `className` string for each button from `selectedAnswerId`:
   - Nothing selected yet → colour-by-index (section 5).
   - This button selected and `is_correct === true` → `bg-emerald-600 text-white` with a visible emphasis ring.
   - This button selected and `is_correct === false` → `bg-red-600 text-white` with the same emphasis ring.
   - Another button was selected → base colour with `opacity-40 cursor-not-allowed`.
-- [ ] Ensure the post-selection correct colour (`bg-emerald-600`) is visually distinct from the unselected index-3 colour (`bg-emerald-500`).
+- [x] Ensure the post-selection correct colour (`bg-emerald-600`) is visually distinct from the unselected index-3 colour (`bg-emerald-500`).
 
 ## 7. Play page — game-over and waiting-to-end screens
 
@@ -89,8 +89,8 @@ Two short holding states. Both should look like part of the same app.
 
 > **Files:** `src/pages/Play.jsx`. **Watch out:** After section 3's restructuring, `nickname` is available in both branches (they render inside the shared shell). The `animate-pulse` indicator is the same as section 4 — a small local constant in the JSX is fine if the repetition is annoying, but do not extract a shared component for it. **User action:** none.
 
-- [ ] Game-over: large centred "Game over" heading; a smaller subtitle such as "Thanks for playing, **{nickname}**!".
-- [ ] Waiting-to-end (session is `active` but `currentQuestionIndex` is past the last question): centred message "Waiting for the game to end…" with the same `animate-pulse` indicator used on the waiting screen.
+- [x] Game-over: large centred "Game over" heading; a smaller subtitle such as "Thanks for playing, **{nickname}**!".
+- [x] Waiting-to-end (session is `active` but `currentQuestionIndex` is past the last question): centred message "Waiting for the game to end…" with the same `animate-pulse` indicator used on the waiting screen.
 
 ## 8. Play page — loading and error states
 
@@ -98,8 +98,8 @@ These appear before `nickname` is known, so they cannot use the full shell. Keep
 
 > **Files:** `src/pages/Play.jsx`. **Watch out:** These early returns fire before `nickname` is resolved, so they need their own `min-h-screen` wrapper with the same dark background — otherwise the page flashes white before state loads. A standard CSS spinner: `w-8 h-8 rounded-full border-4 border-white border-t-transparent animate-spin`. **User action:** none.
 
-- [ ] Loading: a centred spinner (`animate-spin` on a border-based div) on the same dark background as the rest of the app.
-- [ ] Error: centred red heading on the dark background with the error message below it.
+- [x] Loading: a centred spinner (`animate-spin` on a border-based div) on the same dark background as the rest of the app.
+- [x] Error: centred red heading on the dark background with the error message below it.
 
 ## 9. Smoke test
 
