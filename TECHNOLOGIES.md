@@ -58,7 +58,20 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `current_question_index` | integer | nullable; index into questions |
 | `question_open` | boolean | default true; controls whether the current question accepts answers |
 | `question_opened_at` | timestamptz | nullable; set automatically by trigger when question advances or reopens |
+| `current_question_slots` | jsonb | nullable; array of 4 answer slot assignments sent to players via realtime |
 | `created_at` | timestamptz | default now() |
+
+### `session_question_answers`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `session_id` | uuid FK → sessions | cascade delete |
+| `question_id` | uuid FK → questions | cascade delete |
+| `slot_index` | integer | 0–3; display position |
+| `answer_id` | uuid FK → answers | which answer this slot maps to |
+| `color` | text | `'red'`, `'blue'`, `'yellow'`, `'green'` |
+| `icon` | text | `'circle'`, `'diamond'`, `'triangle'`, `'square'` |
+| — | unique | `(session_id, question_id, slot_index)` |
 
 ### `players`
 | column | type | notes |
@@ -115,6 +128,7 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `20260414000000_player_answers.sql` | Adds `player_answers` table + `question_open` on `sessions`; enables realtime on `player_answers` and `players` |
 | `20260414000001_player_answers_policy.sql` | Open `allow all` RLS policy for `player_answers` |
 | `20260416000000_time_based_scoring.sql` | Adds time-based scoring: question_opened_at on sessions, points_earned on player_answers, trigger, updated submit_answer |
+| `..._split_screen.sql` | Adds `session_question_answers` table, `current_question_slots` on sessions, shuffle/open question flow, updated submit_answer validation |
 
 ## Frontend: React
 
