@@ -175,12 +175,6 @@ export default function HostSession({ sessionId }) {
   }, [questionOpen, currentQuestionIndex, sessionState, hostQuestions])
 
   async function startGame() {
-    const { count, error: countError } = await supabase
-      .from('questions')
-      .select('id', { count: 'exact', head: true })
-      .eq('quiz_id', quizId)
-    if (countError) { setError(countError.message); return }
-
     const { error: startError } = await supabase
       .from('sessions')
       .update({ state: 'active', current_question_index: 0 })
@@ -213,7 +207,7 @@ export default function HostSession({ sessionId }) {
 
     setCurrentQuestionSlots(slots)
     setHostQuestions(sortedQs)
-    setTotalQuestions(count)
+    setTotalQuestions(sortedQs.length)
     setAnswerCount(0)
   }
 
