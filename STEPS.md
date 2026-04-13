@@ -90,9 +90,10 @@ Items deferred to a later version. The version marker indicates the earliest poi
 - [ ] **v0.8** — Replace open `allow all` RLS policies with proper user-scoped policies (currently every anonymous client can read and write everything).
 - [ ] **v0.8** — `player_id` in `localStorage` is unauthenticated; any client can forge a player identity.
 - [ ] **future** — Full security audit: clients can query questions/answers for future questions before they are shown (no row-level restriction by session state), and other unenumerated cheat vectors introduced by the all-anon-read RLS posture.
-- [x] **future** — Time-based scoring: award more points for fast answers (Kahoot-style decay). Requires recording answer timestamp server-side in `submit_answer` and comparing against question open time.
+
 - [ ] **future** — Join code collision is unhandled; if a duplicate code is generated the insert fails with a constraint error instead of retrying with a new code.
 - [ ] **future** — Stale `waiting` sessions accumulate in the DB with no expiry or cleanup mechanism.
+- [ ] **future** — Countdown clock: players currently have no in-page timer. The `time_limit` per question is stored in the DB but not surfaced to players — they just see the question. Add a client-side countdown timer synced to `time_limit` so players know how much time remains.
 
 ---
 
