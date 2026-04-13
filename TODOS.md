@@ -22,8 +22,8 @@ Small housekeeping and global setup before styling individual screens.
 
 > **Files:** `src/App.css` (delete), `src/index.css` (edit). **Watch out:** This project uses Tailwind v4 (`@tailwindcss/vite` plugin, `@import "tailwindcss"` in `index.css`). Body-level defaults can be added as plain CSS after the import directive, or inside an `@layer base` block — both work in v4. `App.css` is never imported anywhere in the project (only `index.css` is imported in `main.jsx`), so deleting it is safe. **User action:** none.
 
-- [ ] Delete `src/App.css` — it is unused Vite scaffold (never imported by any file in the project).
-- [ ] In `src/index.css`, set a default background colour and text colour on `body` so there is no flash of unstyled white between screen transitions.
+- [x] Delete `src/App.css` — it is unused Vite scaffold (never imported by any file in the project).
+- [x] In `src/index.css`, set a default background colour and text colour on `body` so there is no flash of unstyled white between screen transitions.
 
 ## 2. Home page — join form
 
@@ -31,13 +31,13 @@ The join form is the entry point for all players. It must be immediately readabl
 
 > **Files:** `src/pages/Home.jsx` only. **Watch out:** The form has async Supabase logic in `handleSubmit` — do not touch the JS, only the JSX markup and `className` attributes. The current `style={{ color: 'red' }}` inline style on the error `<p>` should be replaced with a Tailwind class. **User action:** none.
 
-- [ ] Wrap the page content in a full-height centred column (`min-h-screen flex flex-col items-center justify-center`) on the same dark background as the rest of the app.
-- [ ] Add a prominent app title above the form as an `<h1>` — large, bold, centred.
-- [ ] Wrap the form in a contrasting card with rounded corners, padding, and a subtle box shadow.
-- [ ] Style each `<label>` as a small, muted block label sitting above its input.
-- [ ] Style each `<input>`: full-width, bordered, rounded, padded, with a visible focus ring.
-- [ ] Style the "Join" submit button: full-width, bold, prominent solid colour, large vertical padding, rounded.
-- [ ] Style the error paragraph: red text, positioned between the last field and the submit button.
+- [x] Wrap the page content in a full-height centred column (`min-h-screen flex flex-col items-center justify-center`) on the same dark background as the rest of the app.
+- [x] Add a prominent app title above the form as an `<h1>` — large, bold, centred.
+- [x] Wrap the form in a contrasting card with rounded corners, padding, and a subtle box shadow.
+- [x] Style each `<label>` as a small, muted block label sitting above its input.
+- [x] Style each `<input>`: full-width, bordered, rounded, padded, with a visible focus ring.
+- [x] Style the "Join" submit button: full-width, bold, prominent solid colour, large vertical padding, rounded.
+- [x] Style the error paragraph: red text, positioned between the last field and the submit button.
 
 ## 3. Play page — consistent outer shell
 

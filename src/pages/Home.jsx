@@ -40,35 +40,40 @@ export default function Home() {
   }
 
   return (
-    <div>
-      <h1>Join a game</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>
-            Join code
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+      <h1 className="text-4xl font-bold mb-8 text-center">Kahoot but not shit</h1>
+      <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-slate-400 font-medium">Join code</label>
             <input
               type="text"
               maxLength={6}
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               required
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-          </label>
-        </div>
-        <div>
-          <label>
-            Nickname
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-slate-400 font-medium">Nickname</label>
             <input
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               required
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-          </label>
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit">Join</button>
-      </form>
+          </div>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button
+            type="submit"
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors"
+          >
+            Join
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
