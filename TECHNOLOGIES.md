@@ -13,7 +13,7 @@ All authorization is enforced via Postgres Row Level Security (RLS) policies. Bu
 
 - **PostgreSQL** — primary data store for quizzes, questions, sessions, answers, and scores.
 - **Row Level Security (RLS)** — enforces who can read and write what, directly at the database level.
-- **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/create`, `/edit/:quizId`, `/library`) redirect unauthenticated users to `/login`.
+- **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/create`, `/edit/:quizId`) redirect unauthenticated users to `/login`.
 - **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time. Enabled on `sessions`, `players`, and `player_answers`.
 - **Postgres Functions** — used for logic that must run server-side, most importantly score calculation on answer submission.
 
@@ -107,26 +107,44 @@ All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `qui
 | `TODOS.md` | Detailed task list for the current version |
 | `AGENTS.md` | Coding agent instructions and lessons learned |
 
+### Page hierarchy and navigation
+
+```
+/                   Home — join a game (code + nickname) or navigate to host
+├── /login          Login — email/password auth for quiz creators
+├── /host           HostLibrary — browse quizzes, pick one to host (creator hub)
+│   └── /host/:id   HostSession — live game management
+│                     ├── waiting   HostLobby — players gather, host starts game
+│                     ├── active    HostActiveQuestion — question in progress
+│                     └── finished  end screen (back to library or host again)
+├── /join/:code     Join — join by URL; auto-rejoins if a stored entry exists
+├── /play/:code     Play — player game interface (waiting → answering → feedback)
+├── /create         Create — new quiz editor  [protected]
+└── /edit/:quizId   Create — edit existing quiz  [protected]
+```
+
+`/library` redirects to `/host`.
+
 ### Frontend source (`src/`)
 
 | File | Purpose |
 |---|---|
 | `src/main.jsx` | React entry point; mounts app with `BrowserRouter` |
-| `src/App.jsx` | Route definitions: `/`, `/login`, `/host`, `/host/:sessionId`, `/play/:code`, `/create`, `/edit/:quizId`, `/library` |
+| `src/App.jsx` | Route definitions: `/`, `/login`, `/host`, `/host/:sessionId`, `/join/:code`, `/play/:code`, `/create`, `/edit/:quizId`; `/library` redirects to `/host` |
 | `src/index.css` | Tailwind CSS import + dark base styles |
 | `src/lib/supabase.js` | Supabase client singleton |
 | `src/lib/slots.js` | Slot shuffle/color/icon utilities for split-screen answer layout |
 | `src/lib/utils.js` | Shared utility helpers |
-| `src/context/AuthContext.jsx` | React context providing `user` and `loading` from Supabase Auth |
-| `src/pages/Home.jsx` | Landing page — player enters join code + nickname |
+| `src/context/AuthContext.jsx` | React context providing `user`, `loading`, and `signOut` from Supabase Auth |
+| `src/pages/Home.jsx` | Landing page — join a game by code, or navigate to host/login |
 | `src/pages/Login.jsx` | Auth page — email/password login for quiz creators |
-| `src/pages/Host.jsx` | Host interface — quiz selection and session management |
+| `src/pages/Host.jsx` | Thin router — renders `HostLibrary` or `HostSession` depending on URL |
+| `src/pages/Join.jsx` | Join page — join by URL; handles auto-rejoin and fresh join |
 | `src/pages/Create.jsx` | Quiz editor — create and edit quizzes and their questions |
-| `src/pages/Library.jsx` | Creator's quiz library — list, launch, and delete owned quizzes |
 | `src/pages/Play.jsx` | Player interface — answer questions, see feedback + leaderboard |
-| `src/components/HostSession.jsx` | Host session shell — wraps lobby, waiting, and active-question views |
-| `src/components/HostLobby.jsx` | Lobby view shown to host while players join |
-| `src/components/HostWaiting.jsx` | Between-question view shown to host after closing a question |
+| `src/components/HostSession.jsx` | Host session shell — wraps HostLobby, and active-question views |
+| `src/components/HostLibrary.jsx` | Quiz picker — browse own and public quizzes, start a session |
+| `src/components/HostLobby.jsx` | Waiting room — players gather here before the game starts |
 | `src/components/HostActiveQuestion.jsx` | Active-question view shown to host during a live question |
 | `src/components/FeedbackView.jsx` | Post-answer feedback screen shown to players |
 | `src/components/QuestionEditor.jsx` | Question + answer editor sub-component used in Create |
