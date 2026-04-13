@@ -115,140 +115,143 @@ export default function Create() {
     return Object.keys(errs).length === 0
   }
 
+  async function handleCreate() {
+    const { data: quiz, error: quizError } = await supabase
+      .from('quizzes')
+      .insert({ title: title.trim(), is_public: isPublic, creator_id: user.id })
+      .select('id')
+      .single()
+
+    if (quizError || !quiz) {
+      setErrors({ submit: quizError?.message ?? 'Failed to create quiz' })
+      setSaving(false)
+      return
+    }
+
+    const questionInserts = questions.map((q, i) => ({
+      quiz_id: quiz.id,
+      order_index: i,
+      question_text: q.question_text.trim(),
+      time_limit: q.time_limit,
+      points: q.points,
+      image_url: q.image_url.trim() || null,
+    }))
+
+    const { data: insertedQuestions, error: qError } = await supabase
+      .from('questions')
+      .insert(questionInserts)
+      .select('id, order_index')
+
+    if (qError || !insertedQuestions) {
+      setErrors({ submit: qError?.message ?? 'Failed to save questions' })
+      setSaving(false)
+      return
+    }
+
+    const answerInserts = []
+    insertedQuestions.forEach((iq) => {
+      const orig = questions[iq.order_index]
+      orig.answers.forEach((a, ai) => {
+        answerInserts.push({
+          question_id: iq.id,
+          order_index: ai,
+          answer_text: a.answer_text.trim(),
+          is_correct: a.is_correct,
+        })
+      })
+    })
+
+    const { error: aError } = await supabase.from('answers').insert(answerInserts)
+    if (aError) {
+      setErrors({ submit: aError.message ?? 'Failed to save answers' })
+      setSaving(false)
+      return
+    }
+
+    navigate('/library')
+  }
+
+  async function handleEdit() {
+    const { error: quizError } = await supabase
+      .from('quizzes')
+      .update({ title: title.trim(), is_public: isPublic })
+      .eq('id', quizId)
+    if (quizError) {
+      setErrors({ submit: quizError.message })
+      setSaving(false)
+      return
+    }
+
+    const { data: existingQs, error: fetchErr } = await supabase
+      .from('questions')
+      .select('id')
+      .eq('quiz_id', quizId)
+    if (fetchErr) {
+      setErrors({ submit: fetchErr.message })
+      setSaving(false)
+      return
+    }
+    const existingQIds = new Set(existingQs.map((q) => q.id))
+
+    for (const qid of existingQIds) {
+      if (!questions.find((q) => q.id === qid)) {
+        await supabase.from('questions').delete().eq('id', qid)
+      }
+    }
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i]
+      const { data: qData, error: qErr } = await supabase
+        .from('questions')
+        .upsert({
+          id: q.id,
+          quiz_id: quizId,
+          order_index: i,
+          question_text: q.question_text.trim(),
+          time_limit: q.time_limit,
+          points: q.points,
+          image_url: q.image_url.trim() || null,
+        })
+        .select('id')
+      if (qErr) {
+        setErrors({ submit: qErr.message })
+        setSaving(false)
+        return
+      }
+
+      const newQId = qData[0].id
+      const { data: existingAs } = await supabase
+        .from('answers')
+        .select('id')
+        .eq('question_id', newQId)
+      const existingAIds = new Set(existingAs.map((a) => a.id))
+
+      for (const aid of existingAIds) {
+        if (!q.answers.find((a) => a.id === aid)) {
+          await supabase.from('answers').delete().eq('id', aid)
+        }
+      }
+
+      for (let ai = 0; ai < q.answers.length; ai++) {
+        const a = q.answers[ai]
+        await supabase.from('answers').upsert({
+          id: a.id,
+          question_id: newQId,
+          order_index: ai,
+          answer_text: a.answer_text.trim(),
+          is_correct: a.is_correct,
+        })
+      }
+    }
+
+    navigate('/library')
+  }
+
   async function handleSave() {
     if (!validate()) return
     setSaving(true)
-
-    if (isEditMode) {
-      const { error: quizError } = await supabase
-        .from('quizzes')
-        .update({ title: title.trim(), is_public: isPublic })
-        .eq('id', quizId)
-      if (quizError) {
-        setErrors({ submit: quizError.message })
-        setSaving(false)
-        return
-      }
-
-      const { data: existingQs, error: fetchErr } = await supabase
-        .from('questions')
-        .select('id')
-        .eq('quiz_id', quizId)
-      if (fetchErr) {
-        setErrors({ submit: fetchErr.message })
-        setSaving(false)
-        return
-      }
-      const existingQIds = new Set(existingQs.map((q) => q.id))
-
-      for (const qid of existingQIds) {
-        if (!questions.find((q) => q.id === qid)) {
-          await supabase.from('questions').delete().eq('id', qid)
-        }
-      }
-
-
-      for (let i = 0; i < questions.length; i++) {
-        const q = questions[i]
-        const { data: qData, error: qErr } = await supabase
-          .from('questions')
-          .upsert({
-            id: q.id,
-            quiz_id: quizId,
-            order_index: i,
-            question_text: q.question_text.trim(),
-            time_limit: q.time_limit,
-            points: q.points,
-            image_url: q.image_url.trim() || null,
-          })
-          .select('id')
-        if (qErr) {
-          setErrors({ submit: qErr.message })
-          setSaving(false)
-          return
-        }
-
-        const newQId = qData[0].id
-        const { data: existingAs } = await supabase
-          .from('answers')
-          .select('id')
-          .eq('question_id', newQId)
-        const existingAIds = new Set(existingAs.map((a) => a.id))
-
-        for (const aid of existingAIds) {
-          if (!q.answers.find((a) => a.id === aid)) {
-            await supabase.from('answers').delete().eq('id', aid)
-          }
-        }
-
-        for (let ai = 0; ai < q.answers.length; ai++) {
-          const a = q.answers[ai]
-          await supabase.from('answers').upsert({
-            id: a.id,
-            question_id: newQId,
-            order_index: ai,
-            answer_text: a.answer_text.trim(),
-            is_correct: a.is_correct,
-          })
-        }
-      }
-
-      navigate('/library')
-    } else {
-      const { data: quiz, error: quizError } = await supabase
-        .from('quizzes')
-        .insert({ title: title.trim(), is_public: isPublic, creator_id: user.id })
-        .select('id')
-        .single()
-
-      if (quizError || !quiz) {
-        setErrors({ submit: quizError?.message ?? 'Failed to create quiz' })
-        setSaving(false)
-        return
-      }
-
-      const questionInserts = questions.map((q, i) => ({
-        quiz_id: quiz.id,
-        order_index: i,
-        question_text: q.question_text.trim(),
-        time_limit: q.time_limit,
-        points: q.points,
-        image_url: q.image_url.trim() || null,
-      }))
-
-      const { data: insertedQuestions, error: qError } = await supabase
-        .from('questions')
-        .insert(questionInserts)
-        .select('id, order_index')
-
-      if (qError || !insertedQuestions) {
-        setErrors({ submit: qError?.message ?? 'Failed to save questions' })
-        setSaving(false)
-        return
-      }
-
-      const answerInserts = []
-      insertedQuestions.forEach((iq) => {
-        const orig = questions[iq.order_index]
-        orig.answers.forEach((a, ai) => {
-          answerInserts.push({
-            question_id: iq.id,
-            order_index: ai,
-            answer_text: a.answer_text.trim(),
-            is_correct: a.is_correct,
-          })
-        })
-      })
-
-      const { error: aError } = await supabase.from('answers').insert(answerInserts)
-      if (aError) {
-        setErrors({ submit: aError.message ?? 'Failed to save answers' })
-        setSaving(false)
-        return
-      }
-
-      navigate('/library')
-    }
+    if (isEditMode) await handleEdit()
+    else await handleCreate()
   }
 
   async function handleDelete() {
