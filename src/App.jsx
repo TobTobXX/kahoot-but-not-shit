@@ -20,9 +20,9 @@ function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/host" element={<Host />} />
-      <Route path="/host/:sessionId" element={<Host />} />
-      <Route path="/join/:code" element={<Join />} />
-      <Route path="/play/:code" element={<Play />} />
+      <Route path="/host" element={<Host />} />
+      <Route path="/join" element={<Join />} />
+      <Route path="/play" element={<Play />} />
       <Route
         path="/create"
         element={
@@ -32,7 +32,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/edit/:quizId"
+        path="/edit"
         element={
           <ProtectedRoute>
             <Create />

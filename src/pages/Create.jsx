@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import QuestionEditor from '../components/QuestionEditor'
@@ -22,7 +22,8 @@ function blankQuestion() {
 }
 
 export default function Create() {
-  const { quizId } = useParams()
+  const [searchParams] = useSearchParams()
+  const quizId = searchParams.get('quizId')
   const { user } = useAuth()
   const navigate = useNavigate()
   const isEditMode = Boolean(quizId)

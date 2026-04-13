@@ -1,9 +1,9 @@
-import { useParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import HostLibrary from '../components/HostLibrary'
 import HostSession from '../components/HostSession'
 
-// Routes to the lobby (quiz picker) or the live session view depending on the URL.
 export default function Host() {
-  const { sessionId } = useParams()
+  const [searchParams] = useSearchParams()
+  const sessionId = searchParams.get('sessionId')
   return sessionId ? <HostSession sessionId={sessionId} /> : <HostLibrary />
 }

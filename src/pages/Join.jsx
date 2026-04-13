@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Join() {
-  const { code } = useParams()
+  const [searchParams] = useSearchParams()
+  const code = searchParams.get('code')
   const navigate = useNavigate()
 
   const [checking, setChecking] = useState(true)
@@ -12,6 +13,14 @@ export default function Join() {
   const [submitError, setSubmitError] = useState(null)
 
   useEffect(() => {
+    if (!code) {
+      setTimeout(() => {
+        setError('No join code provided')
+        setChecking(false)
+      }, 0)
+      return
+    }
+
     async function check() {
       const stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
 
@@ -42,7 +51,7 @@ export default function Join() {
           .maybeSingle()
 
         if (player) {
-          navigate(`/play/${code}`, { replace: true })
+          navigate(`/play?code=${code}`, { replace: true })
           return
         }
 
@@ -83,7 +92,7 @@ export default function Join() {
     }
 
     localStorage.setItem(`player_${code}`, JSON.stringify({ player_id: player.id, nickname }))
-    navigate(`/play/${code}`)
+    navigate(`/play?code=${code}`)
   }
 
   if (checking) {

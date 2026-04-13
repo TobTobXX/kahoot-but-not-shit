@@ -264,7 +264,7 @@ export default function HostSession({ sessionId }) {
       .select('id')
       .single()
     if (err) { setError(err.message); return }
-    navigate(`/host/${data.id}`)
+    navigate(`/host?sessionId=${data.id}`)
   }
 
   if (loading) {
@@ -294,7 +294,7 @@ export default function HostSession({ sessionId }) {
         {sessionState === 'waiting' && (
           <HostLobby
             joinCode={joinCode}
-            joinUrl={`${window.location.origin}/join/${joinCode}`}
+            joinUrl={`${window.location.origin}/#/join?code=${joinCode}`}
             players={players}
             shuffleAnswers={shuffleAnswers}
             onShuffleChange={setShuffleAnswers}

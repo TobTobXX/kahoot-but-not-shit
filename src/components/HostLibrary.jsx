@@ -55,7 +55,7 @@ export default function HostLibrary() {
     if (err) {
       setError(err.message)
     } else {
-      navigate(`/host/${data.id}`)
+      navigate(`/host?sessionId=${data.id}`)
     }
   }
 
@@ -124,7 +124,7 @@ export default function HostLibrary() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`/edit/${quiz.id}`}
+                    to={`/edit?quizId=${quiz.id}`}
                     className="text-sm text-slate-400 hover:text-white transition-colors px-2 py-1"
                   >
                     Edit

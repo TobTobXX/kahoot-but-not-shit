@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import SlotIcon from '../components/SlotIcon'
 import FeedbackView from '../components/FeedbackView'
@@ -7,7 +7,8 @@ import { SLOT_COLOR_CLASSES } from '../lib/slots'
 import { byOrderIndex } from '../lib/utils'
 
 export default function Play() {
-  const { code } = useParams()
+  const [searchParams] = useSearchParams()
+  const code = searchParams.get('code')
   const navigate = useNavigate()
   const [nickname, setNickname] = useState(null)
   const [sessionId, setSessionId] = useState(null)
@@ -90,6 +91,11 @@ export default function Play() {
   // Sets sessionId (and quizIdRef) which triggers the realtime effect below.
   useEffect(() => {
     async function loadSession() {
+      if (!code) {
+        setError('No join code provided')
+        return
+      }
+
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .select('id, state, current_question_index, quiz_id, question_open, current_question_slots')
@@ -104,7 +110,7 @@ export default function Play() {
       const stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
       const playerId = stored?.player_id
       if (!playerId) {
-        navigate(`/join/${code}`, { replace: true })
+        navigate(`/join?code=${code}`, { replace: true })
         return
       }
 
@@ -115,7 +121,7 @@ export default function Play() {
         .single()
 
       if (playerError || !player) {
-        navigate(`/join/${code}`, { replace: true })
+        navigate(`/join?code=${code}`, { replace: true })
         return
       }
 
