@@ -388,7 +388,6 @@ export default function Create() {
             Delete quiz
           </button>
         )}
-        )}
       </div>
     </div>
   )
