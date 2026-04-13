@@ -17,8 +17,6 @@ export default function Play() {
   const [feedbackShown, setFeedbackShown] = useState(false)
   const [isCorrect, setIsCorrect] = useState(null)
   const [pointsEarned, setPointsEarned] = useState(0)
-  const [correctAnswerIds, setCorrectAnswerIds] = useState([]) // eslint-disable-line no-unused-vars -- kept for future results screen
-
   const [leaderboard, setLeaderboard] = useState([])
   const [error, setError] = useState(null)
 
@@ -57,8 +55,6 @@ export default function Play() {
         .select('id')
         .eq('question_id', closedQuestion.id)
         .eq('is_correct', true)
-      setCorrectAnswerIds(correctAnswers ? correctAnswers.map((a) => a.id) : [])
-
       if (slots && correctAnswers?.length === 1) {
         const correctAnswerId = correctAnswers[0].id
         const idx = slots.findIndex((s) => s.answer_id === correctAnswerId)
@@ -185,7 +181,6 @@ export default function Play() {
               setFeedbackShown(false)
               setIsCorrect(null)
               setPointsEarned(0)
-              setCorrectAnswerIds([])
               setCorrectSlotIndex(null)
             }
 
