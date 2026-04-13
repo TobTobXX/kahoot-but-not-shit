@@ -22,7 +22,6 @@ export default function Host() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [totalQuestions, setTotalQuestions] = useState(0)
   const [playerCount, setPlayerCount] = useState(0)
-  const [players, setPlayers] = useState([])
   const [questionOpen, setQuestionOpen] = useState(true)
   const [answerCount, setAnswerCount] = useState(0)
   const [error, setError] = useState(null)
@@ -56,7 +55,6 @@ export default function Host() {
             .order('joined_at')
             .then(({ data: existingPlayers }) => {
               if (existingPlayers) {
-                setPlayers(existingPlayers)
                 setPlayerCount(existingPlayers.length)
               }
             })
@@ -106,9 +104,8 @@ export default function Host() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'players', filter: `session_id=eq.${sessionId}` },
-        (payload) => {
+        () => {
           setPlayerCount((c) => c + 1)
-          setPlayers((prev) => [...prev, payload.new])
         }
       )
       .subscribe()
@@ -122,8 +119,6 @@ export default function Host() {
   // Re-subscribe to player_answers whenever the current question changes
   useEffect(() => {
     if (!sessionId || sessionState !== 'active') return
-
-    setAnswerCount(0)
 
     // We need the question id for the current index — fetch it first
     supabase
@@ -189,6 +184,7 @@ export default function Host() {
     if (error) { setError(error.message); return }
 
     setTotalQuestions(count)
+    setAnswerCount(0)
   }
 
   async function nextQuestion() {
@@ -198,6 +194,7 @@ export default function Host() {
       .update({ current_question_index: next, question_open: true })
       .eq('id', sessionId)
     if (error) { setError(error.message); return }
+    setAnswerCount(0)
   }
 
   async function closeQuestion() {

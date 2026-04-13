@@ -28,20 +28,11 @@ export default function Play() {
   const wasActiveRef = useRef(false)
   const sessionIdRef = useRef(null)
   const questionsRef = useRef([])
+  const prevQuestionIndexRef = useRef(null)
 
   // Keep refs in sync so async callbacks always see current values
   useEffect(() => { questionsRef.current = questions }, [questions])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
-
-  // Reset answer state when question changes
-  useEffect(() => {
-    setSubmittedAnswerId(null)
-    setAnswerSubmitted(false)
-    setAlreadyAnswered(false)
-    setFeedbackShown(false)
-    setIsCorrect(null)
-    setPointsEarned(0)
-  }, [currentQuestionIndex])
 
   useEffect(() => {
     async function load() {
@@ -78,6 +69,7 @@ export default function Play() {
       setCurrentQuestionIndex(session.current_question_index)
       setSessionId(session.id)
       sessionIdRef.current = session.id
+      prevQuestionIndexRef.current = session.current_question_index
 
       const quizId = session.quiz_id
 
@@ -116,6 +108,17 @@ export default function Play() {
 
             setSessionState(newState)
             setCurrentQuestionIndex(newIndex)
+
+            // Reset answer state when question index changes
+            if (newIndex !== prevQuestionIndexRef.current) {
+              prevQuestionIndexRef.current = newIndex
+              setSubmittedAnswerId(null)
+              setAnswerSubmitted(false)
+              setAlreadyAnswered(false)
+              setFeedbackShown(false)
+              setIsCorrect(null)
+              setPointsEarned(0)
+            }
 
             if (!wasActiveRef.current && newState === 'active') {
               wasActiveRef.current = true
