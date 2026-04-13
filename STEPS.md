@@ -27,10 +27,10 @@ The player view now loads the actual quiz from the database and displays questio
 
 Polish the player-facing screens. Focus on clarity and responsiveness — this is what participants see on their phones during a live session.
 
-- [ ] Question and answer layout is clear and responsive on mobile
-- [ ] Correct/wrong feedback is visually distinct
-- [ ] Waiting screen and join flow look presentable
-- [ ] Consistent visual style across player screens
+- [x] Question and answer layout is clear and responsive on mobile
+- [x] Correct/wrong feedback is visually distinct
+- [x] Waiting screen and join flow look presentable
+- [x] Consistent visual style across player screens
 
 ## v0.4 — Real-time session sync
 

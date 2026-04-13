@@ -107,8 +107,8 @@ Open the app at 390 px viewport width (browser dev tools or a real phone) and wa
 
 > **Files:** none to edit — run `nix run nixpkgs#nodejs -- npm run dev` and test in the browser. **Watch out:** Tailwind v4 with `@tailwindcss/vite` does JIT class scanning on every hot reload — no separate build step needed. If a utility class appears to have no effect, check for a typo; Tailwind v4 utility names are unchanged from v3. **User action:** none — purely manual visual verification.
 
-- [ ] Home page: form is centred and readable; inputs, button, and error state look polished.
-- [ ] Waiting screen: nickname bar visible; status line is large and centred; pulse indicator is present.
-- [ ] Question screen at 390 px: question text readable; 2 × 2 grid of coloured answer buttons fills the screen without overflow; each button is large enough to tap comfortably.
-- [ ] After clicking an answer: selected button turns green or red with visible emphasis; other buttons dim.
-- [ ] Game-over and waiting-to-end screens are visually consistent with the rest of the player screens.
+- [x] Home page: form is centred and readable; inputs, button, and error state look polished.
+- [x] Waiting screen: nickname bar visible; status line is large and centred; pulse indicator is present.
+- [x] Question screen at 390 px: question text readable; 2 × 2 grid of coloured answer buttons fills the screen without overflow; each button is large enough to tap comfortably.
+- [x] After clicking an answer: selected button turns green or red with visible emphasis; other buttons dim.
+- [x] Game-over and waiting-to-end screens are visually consistent with the rest of the player screens.
