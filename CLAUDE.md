@@ -11,9 +11,27 @@ This is a self-hostable real-time quiz platform — a better Kahoot. Read the pl
 
 Always read these files at the start of a session to orient yourself before touching any code.
 
-## Workflow
+## Workflows
 
-At the start of each session, and before working any new section, follow these steps in order:
+There are two distinct workflows. Use the right one depending on whether TODOS.md already exists for the current version.
+
+### Workflow A — Writing TODOS for a new version
+
+Use this when TODOS.md is stale (still shows the previous version) and needs to be recreated for the next version.
+
+1. **Read context** — read GOAL.md, TECHNOLOGIES.md, STEPS.md, and TODOS.md to orient yourself.
+2. **Identify the next version** — find the first unchecked version in STEPS.md and read its description and checklist items carefully.
+3. **Read relevant code** — read all existing source files that are relevant to the upcoming version's scope.
+4. **Draft sections** — break the version's checklist into concrete, ordered implementation sections. Each section should be a logical unit of work (one screen, one feature area, one schema change, etc.).
+5. **Write TODOS.md** — replace the file with the new version's task list. Each section must include:
+   - A short prose description of the goal.
+   - A `> blockquote` briefing stating: which files are relevant, specific things to watch out for (API quirks, constraints from earlier versions, ordering dependencies), and whether user action is required.
+   - A checklist of concrete, granular tasks — each task is one actionable step, not a summary.
+6. **Carry forward technical debt** — copy the technical debt block from the previous TODOS.md, keeping only items still unresolved, with their version markers intact.
+
+### Workflow B — Implementing a section
+
+Use this at the start of each session when TODOS.md already reflects the current version.
 
 1. **Read context** — read GOAL.md, TECHNOLOGIES.md, STEPS.md, and TODOS.md to orient yourself.
 2. **Analyse the next section** — identify what the next unchecked section in TODOS.md requires.
