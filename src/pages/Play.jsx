@@ -7,7 +7,8 @@ export default function Play() {
   const [nickname, setNickname] = useState(null)
   const [sessionState, setSessionState] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(null)
-  const [sessionQuizId, setSessionQuizId] = useState(null)
+  const [questions, setQuestions] = useState([])
+  const [selectedAnswerId, setSelectedAnswerId] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -43,7 +44,22 @@ export default function Play() {
       setNickname(player.nickname)
       setSessionState(session.state)
       setCurrentQuestionIndex(session.current_question_index)
-      setSessionQuizId(session.quiz_id)
+
+      if (session.state === 'active') {
+        const { data: qs, error: qsError } = await supabase
+          .from('questions')
+          .select('id, question_text, order_index, answers(id, answer_text, is_correct, order_index)')
+          .eq('quiz_id', session.quiz_id)
+          .order('order_index')
+
+        if (qsError) { setError(qsError.message); return }
+
+        const sorted = qs.map((q) => ({
+          ...q,
+          answers: [...q.answers].sort((a, b) => a.order_index - b.order_index),
+        }))
+        setQuestions(sorted)
+      }
     }
 
     load()
@@ -70,11 +86,47 @@ export default function Play() {
     )
   }
 
-  // sessionState === 'active' — question display handled in section 3
+  // sessionState === 'active'
+  if (currentQuestionIndex === null || currentQuestionIndex >= questions.length) {
+    return (
+      <div>
+        <p>Playing as <strong>{nickname}</strong></p>
+        <p>Waiting for the game to end...</p>
+      </div>
+    )
+  }
+
+  const question = questions[currentQuestionIndex]
+
+  function handleAnswer(answer) {
+    if (selectedAnswerId !== null) return
+    setSelectedAnswerId(answer.id)
+  }
+
+  function answerStyle(answer) {
+    if (selectedAnswerId === null) return {}
+    if (answer.id === selectedAnswerId) {
+      return { background: answer.is_correct ? 'green' : 'red', color: 'white' }
+    }
+    return { opacity: 0.5 }
+  }
+
   return (
     <div>
       <p>Playing as <strong>{nickname}</strong></p>
-      <p>Question {currentQuestionIndex + 1}</p>
+      <p>{question.question_text}</p>
+      <div>
+        {question.answers.map((answer) => (
+          <button
+            key={answer.id}
+            onClick={() => handleAnswer(answer)}
+            disabled={selectedAnswerId !== null}
+            style={answerStyle(answer)}
+          >
+            {answer.answer_text}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

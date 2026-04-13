@@ -36,12 +36,12 @@ Expand the existing `load()` function to fetch `state` and `current_question_ind
 
 Triggered when `state === 'active'`. Load the full question list once and display the question at `current_question_index`.
 
-- [ ] Fetch all questions for the session's quiz ordered by `order_index`, with answers nested and ordered by `order_index` (single Supabase query via nested select)
-- [ ] If `current_question_index` is at or beyond the last question, show "Waiting for the game to end…"
-- [ ] Otherwise, display the question text for the question at `current_question_index`
-- [ ] Render each answer as a clickable button (2–4 per question)
-- [ ] On click: record the selected answer in component state and disable all answer buttons
-- [ ] Reveal client-side feedback: colour the selected button green if `is_correct === true`, red if not — no DB write (answer storage is v0.5)
+- [x] Fetch all questions for the session's quiz ordered by `order_index`, with answers nested and ordered by `order_index` (single Supabase query via nested select)
+- [x] If `current_question_index` is at or beyond the last question, show "Waiting for the game to end…"
+- [x] Otherwise, display the question text for the question at `current_question_index`
+- [x] Render each answer as a clickable button (2–4 per question)
+- [x] On click: record the selected answer in component state and disable all answer buttons
+- [x] Reveal client-side feedback: colour the selected button green if `is_correct === true`, red if not — no DB write (answer storage is v0.5)
 
 ## 4. Smoke test
 
