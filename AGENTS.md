@@ -40,6 +40,8 @@ Use this at the start of each session when TODOS.md already reflects the current
 5. **Write a Briefing** — summarise the section goal, the findings from step 4, and explicitly flag every point where the user is required to act (e.g. Supabase dashboard steps, credentials, manual verification).
 6. **Write a plan of action** — concrete, ordered steps you will take. Present it to the user and wait for confirmation before touching any code.
 7. **Execute** — after confirmation, work through the entire section top to bottom. Check off each task in TODOS.md immediately when done. Commit after every logical unit of work.
+8. **Review for technical debt** — after the session's work is done, reflect on anything deferred, worked around, or left imperfect. Present candidate debt items to the user and ask whether any should be added to the technical debt section of STEPS.md.
+9. **Review for lessons learned** — reflect on anything non-obvious that came up during the session (API quirks, tooling gotchas, React patterns, etc.). Present candidate lessons to the user and ask whether any should be added to the "Lessons learned" section of AGENTS.md (not CLAUDE.md — AGENTS.md is the file for this).
 
 ## Current focus
 
@@ -127,14 +129,6 @@ Tag each version. The moment you should tag is when you check off all the boxes 
 ### `git tag` opens interactive editor
 
 `git tag <name>` without `-m` opens the default editor. Always use `git tag <name> -m "message"` to avoid this.
-
-### `nix run` vs `nix shell` for npm/node commands
-
-`nix run nixpkgs#nodejs -- <cmd>` breaks when `<cmd>` itself is a wrapper script (like `npm`, `npx`, `vite`). The `--` gets passed to the wrong binary. Always use `nix shell nixpkgs#nodejs -c <cmd>` for npm, npx, vite, and similar tools. `nix run` is fine for single-shot CLI binaries (e.g. `nix run nixpkgs#supabase-cli -- db push`).
-
-### Tailwind v4 + `@tailwindcss/vite`
-
-JIT class scanning happens on Vite's hot reload, so `npm run dev` is sufficient during development. No separate build step needed for styling changes.
 
 ### Supabase realtime
 
