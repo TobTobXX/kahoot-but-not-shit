@@ -4,10 +4,10 @@
 
 ## 1. Project setup
 
-- [ ] Initialise a Vite + React project in the repo root (`npm create vite@latest . -- --template react`)
-- [ ] Install dependencies: `@supabase/supabase-js`, `react-router-dom`
-- [ ] Install and configure Tailwind CSS (follow Vite guide — install, add plugin to vite.config, add directives to index.css)
-- [ ] Verify dev server starts cleanly
+- [x] Initialise a Vite + React project in the repo root (`npm create vite@latest . -- --template react`)
+- [x] Install dependencies: `@supabase/supabase-js`, `react-router-dom`
+- [x] Install and configure Tailwind CSS (follow Vite guide — install, add plugin to vite.config, add directives to index.css)
+- [x] Verify dev server starts cleanly
 
 ## 2. Supabase client
 
