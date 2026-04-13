@@ -28,9 +28,9 @@ The host needs to start the game, step through questions, and end the session. T
 
 Expand the existing `load()` function to fetch `state` and `current_question_index` alongside the session `id`. Branch on session state:
 
-- [ ] If `state === 'waiting'`: keep the existing "Waiting for the host to start…" screen
-- [ ] If `state === 'active'`: proceed to load and display the current question (section 3)
-- [ ] If `state === 'finished'`: show a "Game over" screen (no score yet — that comes in v0.5)
+- [x] If `state === 'waiting'`: keep the existing "Waiting for the host to start…" screen
+- [x] If `state === 'active'`: proceed to load and display the current question (section 3)
+- [x] If `state === 'finished'`: show a "Game over" screen (no score yet — that comes in v0.5)
 
 ## 3. Play page — question and answer display
 
