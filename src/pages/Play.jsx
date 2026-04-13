@@ -40,7 +40,7 @@ export default function Play() {
     if (closedQuestion && pid) {
       const { data: pa } = await supabase
         .from('player_answers')
-        .select('answer_id, answers(is_correct)')
+        .select('answer_id, points_earned, answers(is_correct)')
         .eq('player_id', pid)
         .eq('question_id', closedQuestion.id)
         .maybeSingle()
@@ -48,7 +48,7 @@ export default function Play() {
       setSubmittedAnswerId(pa?.answer_id ?? null)
       setAnswerSubmitted(!!pa)
       setIsCorrect(pa ? correct : null)
-      setPointsEarned(correct ? (closedQuestion.points ?? 0) : 0)
+      setPointsEarned(pa?.points_earned ?? 0)
 
       const { data: correctAnswers } = await supabase
         .from('answers')

@@ -57,6 +57,7 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `state` | text | `'waiting'` → `'active'` → `'finished'` |
 | `current_question_index` | integer | nullable; index into questions |
 | `question_open` | boolean | default true; controls whether the current question accepts answers |
+| `question_opened_at` | timestamptz | nullable; set automatically by trigger when question advances or reopens |
 | `created_at` | timestamptz | default now() |
 
 ### `players`
@@ -75,6 +76,7 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `player_id` | uuid FK → players | cascade delete |
 | `question_id` | uuid FK → questions | cascade delete |
 | `answer_id` | uuid FK → answers | |
+| `points_earned` | integer | not null; default 0; server-computed time-decayed score for this answer |
 | `created_at` | timestamptz | default now() |
 | — | unique | `(player_id, question_id)` — one answer per player per question |
 
@@ -112,6 +114,7 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `20260413130000_enable_realtime_sessions.sql` | Adds `sessions` to the Supabase realtime publication |
 | `20260414000000_player_answers.sql` | Adds `player_answers` table + `question_open` on `sessions`; enables realtime on `player_answers` and `players` |
 | `20260414000001_player_answers_policy.sql` | Open `allow all` RLS policy for `player_answers` |
+| `20260416000000_time_based_scoring.sql` | Adds time-based scoring: question_opened_at on sessions, points_earned on player_answers, trigger, updated submit_answer |
 
 ## Frontend: React
 
