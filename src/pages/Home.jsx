@@ -133,6 +133,26 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Bottom right footer */}
+      <div className='fixed bottom-4 right-4 flex items-center gap-3'>
+        <a
+          href='https://codeberg.org/TobTobXX/kahoot-but-not-shit'
+          target='_blank'
+          rel='noopener noreferrer'
+          className='text-sm text-slate-500 hover:text-slate-300 transition-colors'
+        >
+          Source
+        </a>
+        <span className='text-slate-600'>|</span>
+        <button
+          disabled
+          className='text-sm text-slate-600 cursor-not-allowed'
+          title='Donate (coming soon)'
+        >
+          Donate
+        </button>
+      </div>
+
     </div>
   )
 }
