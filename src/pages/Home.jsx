@@ -16,11 +16,11 @@ export default function Home() {
       .from('sessions')
       .select('id')
       .eq('join_code', code)
-      .eq('state', 'waiting')
+      .in('state', ['waiting', 'active'])
       .single()
 
     if (sessionError || !session) {
-      setError('Session not found or already started')
+      setError('Session not found')
       return
     }
 
