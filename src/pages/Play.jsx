@@ -23,6 +23,7 @@ export default function Play() {
 
   const wasActiveRef = useRef(false)
   const sessionIdRef = useRef(null)
+  const quizIdRef = useRef(null)
   const questionsRef = useRef([])
   const prevQuestionIndexRef = useRef(null)
   const prevQuestionOpenRef = useRef(null)
@@ -75,11 +76,13 @@ export default function Play() {
     }
   }
 
+  // Effect 1: load session, player, and initial question state.
+  // Sets sessionId (and quizIdRef) which triggers the realtime effect below.
   useEffect(() => {
-    async function load() {
+    async function loadSession() {
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
-        .select('id, state, current_question_index, quiz_id, question_open')
+        .select('id, state, current_question_index, quiz_id, question_open, current_question_slots')
         .eq('join_code', code)
         .single()
 
@@ -110,19 +113,17 @@ export default function Play() {
       setCurrentQuestionIndex(session.current_question_index)
       setSessionId(session.id)
       sessionIdRef.current = session.id
+      quizIdRef.current = session.quiz_id
       prevQuestionIndexRef.current = session.current_question_index
       prevQuestionOpenRef.current = session.question_open
-
       setCurrentQuestionSlots(session.current_question_slots ?? null)
-
-      const quizId = session.quiz_id
 
       if (session.state === 'active') {
         wasActiveRef.current = true
         const { data: qs, error: qsError } = await supabase
           .from('questions')
           .select('id, question_text, order_index, points, answers(id, answer_text, order_index)')
-          .eq('quiz_id', quizId)
+          .eq('quiz_id', session.quiz_id)
           .order('order_index')
 
         if (qsError) { setError(qsError.message); return }
@@ -152,80 +153,81 @@ export default function Play() {
           }
         }
       }
-
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-      }
-
-      const channel = supabase
-        .channel(`player-session-${code}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `join_code=eq.${code}` },
-          (payload) => {
-            const newState = payload.new.state
-            const newIndex = payload.new.current_question_index
-            const newQuestionOpen = payload.new.question_open
-            const newSlots = payload.new.current_question_slots ?? null
-            const prevOpen = prevQuestionOpenRef.current
-
-            setSessionState(newState)
-            setCurrentQuestionIndex(newIndex)
-            setCurrentQuestionSlots(newSlots)
-            prevQuestionOpenRef.current = newQuestionOpen
-
-            if (newIndex !== prevQuestionIndexRef.current) {
-              prevQuestionIndexRef.current = newIndex
-              setSubmittedAnswerId(null)
-              setAnswerSubmitted(false)
-              setAlreadyAnswered(false)
-              setFeedbackShown(false)
-              setIsCorrect(null)
-              setPointsEarned(0)
-              setCorrectSlotIndex(null)
-            }
-
-            if (!wasActiveRef.current && newState === 'active') {
-              wasActiveRef.current = true
-              supabase
-                .from('questions')
-                .select('id, question_text, order_index, points, answers(id, answer_text, order_index)')
-                .eq('quiz_id', quizId)
-                .order('order_index')
-                .then(({ data, error }) => {
-                  if (error) { setError(error.message); return }
-                  const sorted = data.map((q) => ({
-                    ...q,
-                    answers: [...q.answers].sort(byOrderIndex),
-                  }))
-                  setQuestions(sorted)
-                  questionsRef.current = sorted
-                })
-            }
-
-            if (wasActiveRef.current && prevOpen === true && newQuestionOpen === false) {
-              const closedQuestion = questionsRef.current[newIndex]
-              const sid = sessionIdRef.current
-              const pid = localStorage.getItem('player_id')
-              const slots = payload.new.current_question_slots ?? null
-              loadFeedback(closedQuestion, sid, pid, slots)
-            }
-          }
-        )
-        .subscribe()
-
-      channelRef.current = channel
     }
 
-    load()
+    loadSession()
+  }, [code])
+
+  // Effect 2: subscribe to session updates via realtime.
+  // Runs once sessionId is known (set by Effect 1). quizId is accessed via
+  // quizIdRef so it doesn't need to be a dependency.
+  useEffect(() => {
+    if (!sessionId) return
+
+    const channel = supabase
+      .channel(`player-session-${code}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `join_code=eq.${code}` },
+        (payload) => {
+          const newState = payload.new.state
+          const newIndex = payload.new.current_question_index
+          const newQuestionOpen = payload.new.question_open
+          const newSlots = payload.new.current_question_slots ?? null
+          const prevOpen = prevQuestionOpenRef.current
+
+          setSessionState(newState)
+          setCurrentQuestionIndex(newIndex)
+          setCurrentQuestionSlots(newSlots)
+          prevQuestionOpenRef.current = newQuestionOpen
+
+          if (newIndex !== prevQuestionIndexRef.current) {
+            prevQuestionIndexRef.current = newIndex
+            setSubmittedAnswerId(null)
+            setAnswerSubmitted(false)
+            setAlreadyAnswered(false)
+            setFeedbackShown(false)
+            setIsCorrect(null)
+            setPointsEarned(0)
+            setCorrectSlotIndex(null)
+          }
+
+          if (!wasActiveRef.current && newState === 'active') {
+            wasActiveRef.current = true
+            supabase
+              .from('questions')
+              .select('id, question_text, order_index, points, answers(id, answer_text, order_index)')
+              .eq('quiz_id', quizIdRef.current)
+              .order('order_index')
+              .then(({ data, error }) => {
+                if (error) { setError(error.message); return }
+                const sorted = data.map((q) => ({
+                  ...q,
+                  answers: [...q.answers].sort(byOrderIndex),
+                }))
+                setQuestions(sorted)
+                questionsRef.current = sorted
+              })
+          }
+
+          if (wasActiveRef.current && prevOpen === true && newQuestionOpen === false) {
+            const closedQuestion = questionsRef.current[newIndex]
+            const sid = sessionIdRef.current
+            const pid = localStorage.getItem('player_id')
+            const slots = payload.new.current_question_slots ?? null
+            loadFeedback(closedQuestion, sid, pid, slots)
+          }
+        }
+      )
+      .subscribe()
+
+    channelRef.current = channel
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-        channelRef.current = null
-      }
+      supabase.removeChannel(channel)
+      channelRef.current = null
     }
-  }, [code])
+  }, [sessionId, code])
 
   async function submitAnswer(slotIndex) {
     if (answerSubmitted || alreadyAnswered) return
