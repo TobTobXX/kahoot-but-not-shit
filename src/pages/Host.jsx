@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 function generateJoinCode() {
@@ -11,6 +12,8 @@ function generateJoinCode() {
 }
 
 export default function Host() {
+  const { sessionId: urlSessionId } = useParams()
+  const navigate = useNavigate()
   const [quizzes, setQuizzes] = useState([])
   const [joinCode, setJoinCode] = useState(null)
   const [sessionId, setSessionId] = useState(null)
@@ -22,15 +25,64 @@ export default function Host() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (urlSessionId) {
+      supabase
+        .from('sessions')
+        .select('id, join_code, state, current_question_index, quiz_id')
+        .eq('id', urlSessionId)
+        .single()
+        .then(({ data, error }) => {
+          if (error) {
+            setError('Session not found')
+            setLoading(false)
+            return
+          }
+          setJoinCode(data.join_code)
+          setSessionId(data.id)
+          setSessionState(data.state)
+          setCurrentQuestionIndex(data.current_question_index ?? 0)
+          setQuizId(data.quiz_id)
+          setLoading(false)
+        })
+    } else {
+      supabase
+        .from('quizzes')
+        .select('id, title')
+        .then(({ data, error }) => {
+          if (error) setError(error.message)
+          else setQuizzes(data)
+          setLoading(false)
+        })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- urlSessionId intentionally only read on mount
+
+  useEffect(() => {
+    if (!quizId) return
     supabase
-      .from('quizzes')
-      .select('id, title')
-      .then(({ data, error }) => {
+      .from('questions')
+      .select('id', { count: 'exact', head: true })
+      .eq('quiz_id', quizId)
+      .then(({ count, error }) => {
         if (error) setError(error.message)
-        else setQuizzes(data)
-        setLoading(false)
+        else setTotalQuestions(count)
       })
-  }, [])
+  }, [quizId])
+
+  useEffect(() => {
+    if (!sessionId) return
+    const channel = supabase
+      .channel(`host-session-${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
+        (payload) => {
+          setSessionState(payload.new.state)
+          setCurrentQuestionIndex(payload.new.current_question_index)
+        }
+      )
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [sessionId])
 
   async function createSession(selectedQuizId) {
     const code = generateJoinCode()
@@ -45,22 +97,7 @@ export default function Host() {
       setJoinCode(code)
       setSessionId(data.id)
       setQuizId(selectedQuizId)
-
-      const channel = supabase
-        .channel(`host-session-${data.id}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${data.id}` },
-          (payload) => {
-            setSessionState(payload.new.state)
-            setCurrentQuestionIndex(payload.new.current_question_index)
-          }
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
+      navigate(`/host/${data.id}`)
     }
   }
 
@@ -101,7 +138,7 @@ export default function Host() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <h1 className="text-3xl font-bold mb-8">Host</h1>
 
-      {loading && <p className="text-slate-400">Loading quizzes…</p>}
+      {loading && <p className="text-slate-400">Loading…</p>}
       {error && <p className="text-red-400 mb-4">{error}</p>}
 
       {joinCode ? (

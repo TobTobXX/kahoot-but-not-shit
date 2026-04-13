@@ -8,6 +8,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/host" element={<Host />} />
+      <Route path="/host/:sessionId" element={<Host />} />
       <Route path="/play/:code" element={<Play />} />
     </Routes>
   )
