@@ -256,27 +256,29 @@ export default function Play() {
     setAnswerSubmitted(true)
   }
 
+  // Returns the full className for a slot, covering all interaction states.
+  // Used by both the active-question grid (buttons) and the feedback grid (divs).
   function slotClassName(slotIndex, color) {
-    const base = 'h-32 rounded-2xl flex flex-col items-center justify-center gap-2 transition-opacity cursor-pointer'
+    const base = 'h-32 rounded-2xl flex flex-col items-center justify-center gap-2 transition-opacity'
     const bg = SLOT_COLOR_CLASSES[color]
 
     if (feedbackShown) {
       if (correctSlotIndex === slotIndex) {
-        return `${base} ${bg} ring-4 ring-emerald-300`
+        return `${base} ${bg} ring-4 ring-emerald-300 cursor-default`
       }
       if (submittedAnswerId !== null && currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
-        return `${base} ${bg} ring-4 ring-white`
+        return `${base} ${bg} ring-4 ring-white cursor-default`
       }
       return `${base} ${bg} opacity-40 cursor-default`
     }
 
     if (answerSubmitted || alreadyAnswered) {
       if (currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
-        return `${base} ${bg} ring-4 ring-white`
+        return `${base} ${bg} ring-4 ring-white cursor-default`
       }
       return `${base} ${bg} opacity-40 cursor-default`
     }
-    return `${base} ${bg} active:brightness-110`
+    return `${base} ${bg} cursor-pointer active:brightness-110`
   }
 
   // Loading / error states
@@ -357,21 +359,11 @@ export default function Play() {
 
             {/* Slot grid with feedback */}
             <div className="grid grid-cols-2 gap-3">
-              {currentQuestionSlots.map((slot) => {
-                let cls = `h-32 rounded-2xl flex flex-col items-center justify-center gap-2 ${SLOT_COLOR_CLASSES[slot.color]}`
-                if (correctSlotIndex === slot.slot_index) {
-                  cls += ' ring-4 ring-emerald-300'
-                } else if (submittedAnswerId !== null && slot.answer_id === submittedAnswerId) {
-                  cls += ' ring-4 ring-white'
-                } else if (isCorrect === null) {
-                  cls += ' opacity-40'
-                }
-                return (
-                  <div key={slot.slot_index} className={cls}>
-                    <SlotIcon name={slot.icon} />
-                  </div>
-                )
-              })}
+              {currentQuestionSlots.map((slot) => (
+                <div key={slot.slot_index} className={slotClassName(slot.slot_index, slot.color)}>
+                  <SlotIcon name={slot.icon} />
+                </div>
+              ))}
             </div>
 
             {/* Leaderboard */}
