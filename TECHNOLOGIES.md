@@ -13,13 +13,13 @@ All authorization is enforced via Postgres Row Level Security (RLS) policies. Bu
 
 - **PostgreSQL** — primary data store for quizzes, questions, sessions, answers, and scores.
 - **Row Level Security (RLS)** — enforces who can read and write what, directly at the database level.
-- **Supabase Auth** — handles quiz creator accounts. Players do not need an account.
+- **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/create`, `/edit/:quizId`, `/library`) redirect unauthenticated users to `/login`.
 - **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time. Enabled on `sessions`, `players`, and `player_answers`.
 - **Postgres Functions** — used for logic that must run server-side, most importantly score calculation on answer submission.
 
 ## Database schema
 
-All tables have RLS enabled. Until v0.8 there are open `allow all` policies; proper user-scoped policies replace them then.
+All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `quizzes`, `questions`, and `answers` are creator-scoped; `sessions`, `players`, `player_answers`, and `session_question_answers` remain open (anonymous play).
 
 ### `quizzes`
 | column | type | notes |
@@ -27,6 +27,8 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `id` | uuid PK | `gen_random_uuid()` |
 | `title` | text | not null |
 | `created_at` | timestamptz | default now() |
+| `creator_id` | uuid FK → auth.users | nullable; `on delete set null`; links quiz to its creator |
+| `is_public` | boolean | not null; default true; controls visibility to non-owners |
 
 ### `questions`
 | column | type | notes |
@@ -110,12 +112,25 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | File | Purpose |
 |---|---|
 | `src/main.jsx` | React entry point; mounts app with `BrowserRouter` |
-| `src/App.jsx` | Route definitions: `/`, `/host`, `/host/:sessionId`, `/play/:code` |
+| `src/App.jsx` | Route definitions: `/`, `/login`, `/host`, `/host/:sessionId`, `/play/:code`, `/create`, `/edit/:quizId`, `/library` |
 | `src/index.css` | Tailwind CSS import + dark base styles |
 | `src/lib/supabase.js` | Supabase client singleton |
+| `src/lib/slots.js` | Slot shuffle/color/icon utilities for split-screen answer layout |
+| `src/lib/utils.js` | Shared utility helpers |
+| `src/context/AuthContext.jsx` | React context providing `user` and `loading` from Supabase Auth |
 | `src/pages/Home.jsx` | Landing page — player enters join code + nickname |
-| `src/pages/Host.jsx` | Host interface — quiz selection, session management, question progression |
+| `src/pages/Login.jsx` | Auth page — email/password login for quiz creators |
+| `src/pages/Host.jsx` | Host interface — quiz selection and session management |
+| `src/pages/Create.jsx` | Quiz editor — create and edit quizzes and their questions |
+| `src/pages/Library.jsx` | Creator's quiz library — list, launch, and delete owned quizzes |
 | `src/pages/Play.jsx` | Player interface — answer questions, see feedback + leaderboard |
+| `src/components/HostSession.jsx` | Host session shell — wraps lobby, waiting, and active-question views |
+| `src/components/HostLobby.jsx` | Lobby view shown to host while players join |
+| `src/components/HostWaiting.jsx` | Between-question view shown to host after closing a question |
+| `src/components/HostActiveQuestion.jsx` | Active-question view shown to host during a live question |
+| `src/components/FeedbackView.jsx` | Post-answer feedback screen shown to players |
+| `src/components/QuestionEditor.jsx` | Question + answer editor sub-component used in Create |
+| `src/components/SlotIcon.jsx` | Renders the colored shape icon for an answer slot |
 
 ### Database migrations (`supabase/migrations/`)
 
@@ -127,8 +142,13 @@ All tables have RLS enabled. Until v0.8 there are open `allow all` policies; pro
 | `20260413130000_enable_realtime_sessions.sql` | Adds `sessions` to the Supabase realtime publication |
 | `20260414000000_player_answers.sql` | Adds `player_answers` table + `question_open` on `sessions`; enables realtime on `player_answers` and `players` |
 | `20260414000001_player_answers_policy.sql` | Open `allow all` RLS policy for `player_answers` |
-| `20260416000000_time_based_scoring.sql` | Adds time-based scoring: question_opened_at on sessions, points_earned on player_answers, trigger, updated submit_answer |
-| `..._split_screen.sql` | Adds `session_question_answers` table, `current_question_slots` on sessions, shuffle/open question flow, updated submit_answer validation |
+| `20260415000000_server_side_scoring.sql` | Tightens RLS on `players`/`player_answers`; adds `submit_answer` security-definer function |
+| `20260416000000_time_based_scoring.sql` | Adds `question_opened_at` on `sessions`, `points_earned` on `player_answers`; updates `submit_answer` with time-decay scoring |
+| `20260417000000_split_screen.sql` | Adds `session_question_answers` table, `current_question_slots` on `sessions`; shuffle/open question flow; updates `submit_answer` to validate slot membership |
+| `20260413195737_auth_quizzes.sql` | Adds `creator_id` + `is_public` to `quizzes`; enables realtime on `session_question_answers` |
+| `20260413195738_rls_auth.sql` | Replaces open policies with user-scoped RLS for `quizzes`, `questions`, `answers` |
+| `20260413195739_submit_answer_gate.sql` | Adds auth-uid gate to `submit_answer` (later superseded) |
+| `20260413195740_fix_submit_answer_gate.sql` | Removes incorrect auth gate from `submit_answer` (player IDs are not auth UIDs) |
 
 ## Frontend: React
 
