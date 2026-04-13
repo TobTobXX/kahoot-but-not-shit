@@ -56,6 +56,12 @@ nix run nixpkgs#supabase-cli  -- ...   # supabase CLI (note: supabase-cli, not s
 
 When a command would normally be `npm install`, use `nix run nixpkgs#nodejs -- npm install` (or wrap it in `nix shell nixpkgs#nodejs` for a multi-step workflow). Apply the same pattern for any other tool that may not be on PATH.
 
+### Key gotchas for npm/vite in this project
+
+- `nix run nixpkgs#nodejs -- npm run build` fails with "Cannot find module 'npm'" — use `nix shell nixpkgs#nodejs -c npm run build` instead (the double-dash form breaks when the command itself is a wrapper script).
+- `npx vite build` fails because npx isn't on PATH — use `nix shell nixpkgs#nodejs -c npx vite build`.
+- `npm run lint` works fine via `nix shell nixpkgs#nodejs -c npm run lint`.
+
 ## Supabase CLI
 
 The project is linked to a remote Supabase instance (credentials stored in `supabase/.temp/`). Key commands:
@@ -115,3 +121,29 @@ Tag each version. The moment you should tag is when you check off all the boxes 
 - No real-time until v0.4.
 - No auth until v0.8.
 - Do not add features beyond what the current version's TODOS.md specifies.
+
+## Lessons learned
+
+### `nix run` vs `nix shell` for npm/node commands
+
+`nix run nixpkgs#nodejs -- <cmd>` breaks when `<cmd>` itself is a wrapper script (like `npm`, `npx`, `vite`). The `--` gets passed to the wrong binary. Always use `nix shell nixpkgs#nodejs -c <cmd>` for npm, npx, vite, and similar tools. `nix run` is fine for single-shot CLI binaries (e.g. `nix run nixpkgs#supabase-cli -- db push`).
+
+### Tailwind v4 + `@tailwindcss/vite`
+
+JIT class scanning happens on Vite's hot reload, so `npm run dev` is sufficient during development. No separate build step needed for styling changes.
+
+### Supabase realtime — scope of a realtime channel filter
+
+Supabase realtime uses Postgres-level filters (`id=eq.xxx`). The `filter` option in `postgres_changes` must use Postgres syntax (`id=eq.${id}`), not the Supabase JS client syntax (`id=eq.xxx`).
+
+### Supabase realtime — async callbacks
+
+Do not use `async` on the realtime `on('UPDATE')` callback. It can cause state update ordering issues (stale closures, race conditions). Instead, fire off non-blocking DB calls with `.then()` inside the synchronous callback, or lift async work into a separate function.
+
+### Supabase realtime — filter column naming
+
+The realtime filter key uses Postgres column names with underscores, not camelCase JS keys. Use `join_code=eq.${code}`, not `joinCode=eq.${code}`.
+
+### Supabase realtime — when `db push` is not enough
+
+`supabase db push` only handles SQL migrations. Enabling realtime on a table requires either the Supabase dashboard or a raw SQL migration (`ALTER PUBLICATION supabase_realtime ADD TABLE <name>`). The CLI has no `realtime enable` command.
