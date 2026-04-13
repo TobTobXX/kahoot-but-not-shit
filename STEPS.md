@@ -87,7 +87,7 @@ Add Supabase Auth for quiz creators (email/password or magic link). Each quiz be
 Items deferred to a later version. The version marker indicates the earliest point where it makes sense to address each one.
 
 - [ ] **v0.4** — Host loses session state on page refresh; all session data (session ID, state, question index) lives in component state only. Recovery requires adding URL-based session lookup when real-time is wired up.
-- [ ] **v0.5** — Player can re-answer a question by refreshing the page; `selectedAnswerId` is component state only. Fixed once submitted answers are persisted to the DB.
+- [ ] **v0.5** — Player can re-answer a question by refreshing the page, and currently sees correct/wrong feedback immediately (client-side). Instead: submitted answers should be stored in the DB on selection, and feedback should only be revealed to all players simultaneously when the host closes the question (advances or ends the game). This prevents one player from seeing the correct answer early and sharing it with the group.
 - [ ] **v0.6** — `is_correct` is fetched for all answers and visible in the browser network tab before the player answers, making it trivial to cheat. Addressed when score calculation moves server-side (client no longer needs `is_correct` upfront).
 - [ ] **v0.8** — Replace open `allow all` RLS policies with proper user-scoped policies (currently every anonymous client can read and write everything).
 - [ ] **v0.8** — `player_id` in `localStorage` is unauthenticated; any client can forge a player identity.
