@@ -145,7 +145,7 @@ export default function Play() {
         }
       }
 
-      const channel = supabase
+      channel = supabase
         .channel(`player-session-${code}`)
         .on(
           'postgres_changes',
@@ -201,12 +201,14 @@ export default function Play() {
         )
         .subscribe()
 
-      return () => {
-        supabase.removeChannel(channel)
-      }
     }
 
+    let channel = null
     load()
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [code])
 
   async function submitAnswer(answer) {

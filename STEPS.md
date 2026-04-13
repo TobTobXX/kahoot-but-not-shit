@@ -86,7 +86,8 @@ Add Supabase Auth for quiz creators (email/password or magic link). Each quiz be
 
 Items deferred to a later version. The version marker indicates the earliest point where it makes sense to address each one.
 
-- [ ] **v0.6** — `is_correct` is fetched for all answers and visible in the browser network tab before the player answers, making it trivial to cheat. Addressed when score calculation moves server-side (client no longer needs `is_correct` upfront).
+- [x] **v0.6** — `is_correct` is fetched for all answers and visible in the browser network tab before the player answers, making it trivial to cheat. Addressed when score calculation moves server-side (client no longer needs `is_correct` upfront).
+- [ ] **v0.8** — `submit_answer` RPC accepts any `p_player_id`; a client can call it with another player's UUID to submit answers or inflate their score. Addressed when auth is added and the function can assert `auth.uid() = p_player_id`.
 - [ ] **v0.8** — Replace open `allow all` RLS policies with proper user-scoped policies (currently every anonymous client can read and write everything).
 - [ ] **v0.8** — `player_id` in `localStorage` is unauthenticated; any client can forge a player identity.
 - [ ] **future** — Join code collision is unhandled; if a duplicate code is generated the insert fails with a constraint error instead of retrying with a new code.
