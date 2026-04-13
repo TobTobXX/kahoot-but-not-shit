@@ -2,6 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+function SlotIcon({ name, className }) {
+  const size = 40
+  const fill = 'currentColor'
+  if (name === 'circle') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><circle cx="20" cy="20" r="18" fill={fill} /></svg>
+  }
+  if (name === 'diamond') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><rect x="6" y="6" width="20" height="20" transform="rotate(45 16 16)" fill={fill} /></svg>
+  }
+  if (name === 'triangle') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><polygon points="20,4 38,36 2,36" fill={fill} /></svg>
+  }
+  if (name === 'square') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><rect width="36" height="36" x="2" y="2" rx="2" fill={fill} /></svg>
+  }
+  return null
+}
+
 const ANSWER_COLOURS = [
   'bg-rose-500',
   'bg-blue-500',
@@ -22,7 +40,8 @@ export default function Play() {
   const [feedbackShown, setFeedbackShown] = useState(false)
   const [isCorrect, setIsCorrect] = useState(null)
   const [pointsEarned, setPointsEarned] = useState(0)
-  const [correctAnswerIds, setCorrectAnswerIds] = useState([])
+  const [correctAnswerIds, setCorrectAnswerIds] = useState([]) // eslint-disable-line no-unused-vars -- kept for future results screen
+
   const [leaderboard, setLeaderboard] = useState([])
   const [error, setError] = useState(null)
 
@@ -30,12 +49,16 @@ export default function Play() {
   const sessionIdRef = useRef(null)
   const questionsRef = useRef([])
   const prevQuestionIndexRef = useRef(null)
+  const currentQuestionSlotsRef = useRef(null)
+  const [currentQuestionSlots, setCurrentQuestionSlots] = useState(null)
+  const [correctSlotIndex, setCorrectSlotIndex] = useState(null)
 
   // Keep refs in sync so async callbacks always see current values
   useEffect(() => { questionsRef.current = questions }, [questions])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
+  useEffect(() => { currentQuestionSlotsRef.current = currentQuestionSlots }, [currentQuestionSlots])
 
-  async function loadFeedback(closedQuestion, sid, pid) {
+  async function loadFeedback(closedQuestion, sid, pid, slots) {
     setFeedbackShown(true)
     if (closedQuestion && pid) {
       const { data: pa } = await supabase
@@ -56,6 +79,14 @@ export default function Play() {
         .eq('question_id', closedQuestion.id)
         .eq('is_correct', true)
       setCorrectAnswerIds(correctAnswers ? correctAnswers.map((a) => a.id) : [])
+
+      if (slots && correctAnswers?.length === 1) {
+        const correctAnswerId = correctAnswers[0].id
+        const idx = slots.findIndex((s) => s.answer_id === correctAnswerId)
+        setCorrectSlotIndex(idx >= 0 ? idx : null)
+      } else {
+        setCorrectSlotIndex(null)
+      }
     }
     if (sid) {
       const { data: lb } = await supabase
@@ -127,8 +158,7 @@ export default function Play() {
         const currentQuestion = sorted[session.current_question_index]
         if (currentQuestion) {
           if (!session.question_open) {
-            // Feedback phase: restore full feedback state
-            await loadFeedback(currentQuestion, session.id, playerId)
+            await loadFeedback(currentQuestion, session.id, playerId, session.current_question_slots ?? null)
           } else {
             // Question open: restore submitted answer if player already answered
             const { data: pa } = await supabase
@@ -154,9 +184,11 @@ export default function Play() {
             const newState = payload.new.state
             const newIndex = payload.new.current_question_index
             const newQuestionOpen = payload.new.question_open
+            const newSlots = payload.new.current_question_slots ?? null
 
             setSessionState(newState)
             setCurrentQuestionIndex(newIndex)
+            setCurrentQuestionSlots(newSlots)
 
             // Reset answer state when question index changes
             if (newIndex !== prevQuestionIndexRef.current) {
@@ -168,6 +200,8 @@ export default function Play() {
               setIsCorrect(null)
               setPointsEarned(0)
               setCorrectAnswerIds([])
+              setCorrectSlotIndex(null)
+              setCurrentQuestionSlots(null)
             }
 
             if (!wasActiveRef.current && newState === 'active') {
@@ -195,7 +229,8 @@ export default function Play() {
               const closedQuestion = questionsRef.current[oldIndex]
               const sid = sessionIdRef.current
               const pid = localStorage.getItem('player_id')
-              loadFeedback(closedQuestion, sid, pid)
+              const slots = payload.new.current_question_slots ?? null
+              loadFeedback(closedQuestion, sid, pid, slots)
             }
           }
         )
@@ -211,17 +246,22 @@ export default function Play() {
     }
   }, [code])
 
-  async function submitAnswer(answer) {
+  async function submitAnswer(slotIndex) {
     if (answerSubmitted || alreadyAnswered) return
 
     const playerId = localStorage.getItem('player_id')
     const question = questionsRef.current[currentQuestionIndex]
-    if (!playerId || !question) return
+    const slots = currentQuestionSlotsRef.current
+    if (!playerId || !question || !slots) return
 
-    setSubmittedAnswerId(answer.id)
+    const slot = slots[slotIndex]
+    if (!slot) return
+
+    const answerId = slot.answer_id
+    setSubmittedAnswerId(answerId)
 
     const { error } = await supabase
-      .rpc('submit_answer', { p_player_id: playerId, p_question_id: question.id, p_answer_id: answer.id })
+      .rpc('submit_answer', { p_player_id: playerId, p_question_id: question.id, p_answer_id: answerId })
 
     if (error) {
       if (error.code === '23505') {
@@ -235,26 +275,32 @@ export default function Play() {
     setAnswerSubmitted(true)
   }
 
-  function answerClassName(answer) {
-    const base = 'min-h-20 rounded-xl text-white font-semibold text-lg flex items-center justify-center text-center px-4 transition-opacity'
+  function slotClassName(slotIndex, color) {
+    const colorMap = {
+      red:    'bg-red-500',
+      blue:   'bg-blue-500',
+      yellow: 'bg-amber-400',
+      green:  'bg-emerald-500',
+    }
+    const base = 'h-32 rounded-2xl flex flex-col items-center justify-center gap-2 transition-opacity cursor-pointer'
 
     if (feedbackShown) {
-      if (correctAnswerIds.includes(answer.id)) {
-        return `${base} bg-emerald-600 ring-4 ring-white`
+      if (correctSlotIndex === slotIndex) {
+        return `${base} ${colorMap[color]} ring-4 ring-emerald-300`
       }
-      if (answer.id === submittedAnswerId) {
-        return `${base} bg-red-600 ring-4 ring-white`
+      if (submittedAnswerId !== null && currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
+        return `${base} ${colorMap[color]} ring-4 ring-white`
       }
-      return `${base} ${ANSWER_COLOURS[answer.order_index]} opacity-40`
+      return `${base} ${colorMap[color]} opacity-40 cursor-default`
     }
 
-    if (submittedAnswerId === null) {
-      return `${base} ${ANSWER_COLOURS[answer.order_index]}`
+    if (answerSubmitted || alreadyAnswered) {
+      if (currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
+        return `${base} ${colorMap[color]} ring-4 ring-white`
+      }
+      return `${base} ${colorMap[color]} opacity-40 cursor-default`
     }
-    if (answer.id === submittedAnswerId) {
-      return `${base} ${ANSWER_COLOURS[answer.order_index]} ring-4 ring-white`
-    }
-    return `${base} ${ANSWER_COLOURS[answer.order_index]} opacity-40 cursor-not-allowed`
+    return `${base} ${colorMap[color]} active:brightness-110`
   }
 
   // Loading / error states
@@ -319,7 +365,7 @@ export default function Play() {
         )}
 
         {/* Leaderboard view (replaces question when feedback is shown) */}
-        {question && feedbackShown && (
+        {question && feedbackShown && currentQuestionSlots && (
           <div className="w-full max-w-xl flex flex-col gap-4">
             {/* Result banner */}
             {isCorrect !== null && (
@@ -332,6 +378,31 @@ export default function Play() {
                 You didn't answer
               </div>
             )}
+
+            {/* Slot grid with feedback */}
+            <div className="grid grid-cols-2 gap-3">
+              {currentQuestionSlots.map((slot) => {
+                const colorMap = {
+                  red:    'bg-red-500',
+                  blue:   'bg-blue-500',
+                  yellow: 'bg-amber-400',
+                  green:  'bg-emerald-500',
+                }
+                let cls = `h-32 rounded-2xl flex flex-col items-center justify-center gap-2 ${colorMap[slot.color]}`
+                if (correctSlotIndex === slot.slot_index) {
+                  cls += ' ring-4 ring-emerald-300'
+                } else if (submittedAnswerId !== null && slot.answer_id === submittedAnswerId) {
+                  cls += ' ring-4 ring-white'
+                } else if (isCorrect === null) {
+                  cls += ' opacity-40'
+                }
+                return (
+                  <div key={slot.slot_index} className={cls}>
+                    <SlotIcon name={slot.icon} />
+                  </div>
+                )
+              })}
+            </div>
 
             {/* Leaderboard */}
             <div className="flex flex-col gap-2">
@@ -352,20 +423,17 @@ export default function Play() {
         )}
 
         {/* Question and answers */}
-        {question && !feedbackShown && (
+        {question && !feedbackShown && currentQuestionSlots && (
           <div className="w-full max-w-xl flex flex-col gap-6">
-            <p className="text-2xl font-bold text-center leading-snug px-2">
-              {question.question_text}
-            </p>
-            <div className={`grid gap-3 ${question.answers.length === 2 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {question.answers.map((answer) => (
+            <div className="grid grid-cols-2 gap-3">
+              {currentQuestionSlots.map((slot) => (
                 <button
-                  key={answer.id}
-                  onClick={() => submitAnswer(answer)}
+                  key={slot.slot_index}
+                  onClick={() => submitAnswer(slot.slot_index)}
                   disabled={answerSubmitted || alreadyAnswered}
-                  className={answerClassName(answer)}
+                  className={slotClassName(slot.slot_index, slot.color)}
                 >
-                  {answer.answer_text}
+                  <SlotIcon name={slot.icon} />
                 </button>
               ))}
             </div>

@@ -2,6 +2,31 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+function SlotIcon({ name, className }) {
+  const size = 40
+  const fill = 'currentColor'
+  if (name === 'circle') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><circle cx="20" cy="20" r="18" fill={fill} /></svg>
+  }
+  if (name === 'diamond') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><rect x="6" y="6" width="20" height="20" transform="rotate(45 16 16)" fill={fill} /></svg>
+  }
+  if (name === 'triangle') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><polygon points="20,4 38,36 2,36" fill={fill} /></svg>
+  }
+  if (name === 'square') {
+    return <svg width={size} height={size} viewBox="0 0 40 40" className={className}><rect width="36" height="36" x="2" y="2" rx="2" fill={fill} /></svg>
+  }
+  return null
+}
+
+const SLOT_COLORS = {
+  red:    '#FF4949',
+  blue:   '#2D7DD2',
+  yellow: '#FFD60A',
+  green:  '#2ECC71',
+}
+
 function generateJoinCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = ''
@@ -24,8 +49,13 @@ export default function Host() {
   const [playerCount, setPlayerCount] = useState(0)
   const [questionOpen, setQuestionOpen] = useState(true)
   const [answerCount, setAnswerCount] = useState(0)
+  const [currentQuestionSlots, setCurrentQuestionSlots] = useState(null)
+  const [shuffleAnswers, setShuffleAnswers] = useState(false)
+  const [hostQuestions, setHostQuestions] = useState([])
+  const [timeRemaining, setTimeRemaining] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadingSlots, setLoadingSlots] = useState(false)
   const answersChannelRef = useRef(null)
 
   useEffect(() => {
@@ -47,6 +77,19 @@ export default function Host() {
           setCurrentQuestionIndex(data.current_question_index ?? 0)
           setQuizId(data.quiz_id)
           setQuestionOpen(data.question_open ?? true)
+          if (data.state === 'active') {
+            supabase
+              .from('questions')
+              .select('id, question_text, time_limit, points, answers(id, answer_text, order_index, is_correct)')
+              .eq('quiz_id', data.quiz_id)
+              .order('order_index')
+              .then(({ data: qs }) => {
+                if (qs) {
+                  const sortedQs = qs.map((q) => ({ ...q, answers: [...q.answers].sort((a, b) => a.order_index - b.order_index) }))
+                  setHostQuestions(sortedQs)
+                }
+              })
+          }
           setLoading(false)
           supabase
             .from('players')
@@ -95,6 +138,7 @@ export default function Host() {
           setSessionState(payload.new.state)
           setCurrentQuestionIndex(payload.new.current_question_index)
           setQuestionOpen(payload.new.question_open ?? true)
+          setCurrentQuestionSlots(payload.new.current_question_slots ?? null)
         }
       )
       .subscribe()
@@ -153,6 +197,24 @@ export default function Host() {
     }
   }, [sessionId, currentQuestionIndex, sessionState]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!questionOpen || sessionState !== 'active') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on close
+      setTimeRemaining(null)
+      return
+    }
+    const question = hostQuestions[currentQuestionIndex]
+    if (!question) return
+    setTimeRemaining(question.time_limit ?? 30)
+    const interval = setInterval(() => {
+      setTimeRemaining((t) => {
+        if (t === null || t <= 0) { clearInterval(interval); return 0 }
+        return t - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [questionOpen, currentQuestionIndex, sessionState, hostQuestions])
+
   async function createSession(selectedQuizId) {
     const code = generateJoinCode()
     const { data, error } = await supabase
@@ -183,17 +245,63 @@ export default function Host() {
       .eq('id', sessionId)
     if (error) { setError(error.message); return }
 
+    const { data: qs } = await supabase
+      .from('questions')
+      .select('id, question_text, time_limit, points, answers(id, answer_text, order_index, is_correct)')
+      .eq('quiz_id', quizId)
+      .order('order_index')
+    const sortedQs = qs ? qs.map((q) => ({ ...q, answers: [...q.answers].sort((a, b) => a.order_index - b.order_index) })) : []
+    const firstQuestionId = sortedQs?.[0]?.id
+    if (!firstQuestionId) { setError('No questions found'); return }
+
+    setLoadingSlots(true)
+    const { data: slots, error: slotsError } = await supabase.rpc('assign_answer_slots', {
+      p_session_id: sessionId,
+      p_question_id: firstQuestionId,
+      p_shuffle: shuffleAnswers,
+    })
+    setLoadingSlots(false)
+    if (slotsError) { setError(slotsError.message); return }
+
+    const { error: updateError } = await supabase
+      .from('sessions')
+      .update({ current_question_slots: slots })
+      .eq('id', sessionId)
+    if (updateError) { setError(updateError.message); return }
+
+    setCurrentQuestionSlots(slots)
+    setHostQuestions(sortedQs)
     setTotalQuestions(count)
     setAnswerCount(0)
   }
 
   async function nextQuestion() {
     const next = currentQuestionIndex + 1
+
+    const { data: qs } = await supabase
+      .from('questions')
+      .select('id')
+      .eq('quiz_id', quizId)
+      .order('order_index')
+    const nextQuestionId = qs?.[next]?.id
+    if (!nextQuestionId) return
+
+    setLoadingSlots(true)
+    const { data: slots, error: slotsError } = await supabase.rpc('assign_answer_slots', {
+      p_session_id: sessionId,
+      p_question_id: nextQuestionId,
+      p_shuffle: shuffleAnswers,
+    })
+    setLoadingSlots(false)
+    if (slotsError) { setError(slotsError.message); return }
+
     const { error } = await supabase
       .from('sessions')
-      .update({ current_question_index: next, question_open: true })
+      .update({ current_question_index: next, question_open: true, current_question_slots: slots })
       .eq('id', sessionId)
     if (error) { setError(error.message); return }
+
+    setCurrentQuestionSlots(slots)
     setAnswerCount(0)
   }
 
@@ -234,11 +342,21 @@ export default function Host() {
                 <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
                 <span className="text-sm">{playerCount} player(s) joined</span>
               </div>
+              <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={shuffleAnswers}
+                  onChange={(e) => setShuffleAnswers(e.target.checked)}
+                  className="w-4 h-4 accent-indigo-500"
+                />
+                Shuffle answer positions
+              </label>
               <button
                 onClick={startGame}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors"
+                disabled={loadingSlots}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
               >
-                Start game ({playerCount} players)
+                {loadingSlots ? 'Starting…' : `Start game (${playerCount} players)`}
               </button>
             </div>
           )}
@@ -248,6 +366,34 @@ export default function Host() {
               <p className="text-slate-300 text-sm">
                 Question <span className="text-white font-bold">{currentQuestionIndex + 1}</span> / {totalQuestions}
               </p>
+
+              {timeRemaining !== null && (
+                <div className="text-6xl font-bold text-white tabular-nums">
+                  {timeRemaining}
+                </div>
+              )}
+
+              {currentQuestionSlots && (
+                <div className="w-full grid grid-cols-2 gap-3">
+                  {currentQuestionSlots.map((slot) => {
+                    const currentQ = hostQuestions[currentQuestionIndex]
+                    const answer = currentQ?.answers?.find((a) => a.id === slot.answer_id)
+                    return (
+                      <div
+                        key={slot.slot_index}
+                        className="flex flex-col items-center gap-1 p-3 rounded-xl"
+                        style={{ backgroundColor: SLOT_COLORS[slot.color] }}
+                      >
+                        <SlotIcon name={slot.icon} className="text-white" />
+                        <span className="text-white text-xs font-medium text-center leading-tight">
+                          {answer?.answer_text ?? ''}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <p className="text-slate-400 text-sm">
                 {questionOpen
                   ? `${answerCount} / ${playerCount} answered`
@@ -262,10 +408,10 @@ export default function Host() {
               </button>
               <button
                 onClick={nextQuestion}
-                disabled={currentQuestionIndex >= totalQuestions - 1}
+                disabled={currentQuestionIndex >= totalQuestions - 1 || loadingSlots}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
               >
-                Next question
+                {loadingSlots ? 'Loading…' : 'Next question'}
               </button>
               <button
                 onClick={endGame}
