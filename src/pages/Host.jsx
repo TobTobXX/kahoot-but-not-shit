@@ -3,13 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import SlotIcon from '../components/SlotIcon'
-
-const SLOT_COLORS = {
-  red:    '#FF4949',
-  blue:   '#2D7DD2',
-  yellow: '#FFD60A',
-  green:  '#2ECC71',
-}
+import { SLOT_COLOR_HEX } from '../lib/slots'
 
 function generateJoinCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -390,7 +384,7 @@ export default function Host() {
                       <div
                         key={slot.slot_index}
                         className="flex items-center gap-3 p-3 rounded-xl min-h-20"
-                        style={{ backgroundColor: SLOT_COLORS[slot.color] }}
+                        style={{ backgroundColor: SLOT_COLOR_HEX[slot.color] }}
                       >
                         <SlotIcon name={slot.icon} className="text-white flex-shrink-0" />
                         <span className="text-white font-semibold text-center flex-1 leading-tight">

@@ -2,13 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import SlotIcon from '../components/SlotIcon'
-
-const ANSWER_COLOURS = [
-  'bg-rose-500',
-  'bg-blue-500',
-  'bg-amber-400',
-  'bg-emerald-500',
-]
+import { SLOT_COLOR_CLASSES } from '../lib/slots'
 
 export default function Play() {
   const { code } = useParams()
@@ -267,31 +261,26 @@ export default function Play() {
   }
 
   function slotClassName(slotIndex, color) {
-    const colorMap = {
-      red:    'bg-red-500',
-      blue:   'bg-blue-500',
-      yellow: 'bg-amber-400',
-      green:  'bg-emerald-500',
-    }
     const base = 'h-32 rounded-2xl flex flex-col items-center justify-center gap-2 transition-opacity cursor-pointer'
+    const bg = SLOT_COLOR_CLASSES[color]
 
     if (feedbackShown) {
       if (correctSlotIndex === slotIndex) {
-        return `${base} ${colorMap[color]} ring-4 ring-emerald-300`
+        return `${base} ${bg} ring-4 ring-emerald-300`
       }
       if (submittedAnswerId !== null && currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
-        return `${base} ${colorMap[color]} ring-4 ring-white`
+        return `${base} ${bg} ring-4 ring-white`
       }
-      return `${base} ${colorMap[color]} opacity-40 cursor-default`
+      return `${base} ${bg} opacity-40 cursor-default`
     }
 
     if (answerSubmitted || alreadyAnswered) {
       if (currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
-        return `${base} ${colorMap[color]} ring-4 ring-white`
+        return `${base} ${bg} ring-4 ring-white`
       }
-      return `${base} ${colorMap[color]} opacity-40 cursor-default`
+      return `${base} ${bg} opacity-40 cursor-default`
     }
-    return `${base} ${colorMap[color]} active:brightness-110`
+    return `${base} ${bg} active:brightness-110`
   }
 
   // Loading / error states
@@ -373,13 +362,7 @@ export default function Play() {
             {/* Slot grid with feedback */}
             <div className="grid grid-cols-2 gap-3">
               {currentQuestionSlots.map((slot) => {
-                const colorMap = {
-                  red:    'bg-red-500',
-                  blue:   'bg-blue-500',
-                  yellow: 'bg-amber-400',
-                  green:  'bg-emerald-500',
-                }
-                let cls = `h-32 rounded-2xl flex flex-col items-center justify-center gap-2 ${colorMap[slot.color]}`
+                let cls = `h-32 rounded-2xl flex flex-col items-center justify-center gap-2 ${SLOT_COLOR_CLASSES[slot.color]}`
                 if (correctSlotIndex === slot.slot_index) {
                   cls += ' ring-4 ring-emerald-300'
                 } else if (submittedAnswerId !== null && slot.answer_id === submittedAnswerId) {
