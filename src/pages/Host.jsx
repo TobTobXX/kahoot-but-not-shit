@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -21,14 +21,19 @@ export default function Host() {
   const [sessionState, setSessionState] = useState('waiting')
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [totalQuestions, setTotalQuestions] = useState(0)
+  const [playerCount, setPlayerCount] = useState(0)
+  const [players, setPlayers] = useState([])
+  const [questionOpen, setQuestionOpen] = useState(true)
+  const [answerCount, setAnswerCount] = useState(0)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const answersChannelRef = useRef(null)
 
   useEffect(() => {
     if (urlSessionId) {
       supabase
         .from('sessions')
-        .select('id, join_code, state, current_question_index, quiz_id')
+        .select('id, join_code, state, current_question_index, quiz_id, question_open')
         .eq('id', urlSessionId)
         .single()
         .then(({ data, error }) => {
@@ -42,7 +47,19 @@ export default function Host() {
           setSessionState(data.state)
           setCurrentQuestionIndex(data.current_question_index ?? 0)
           setQuizId(data.quiz_id)
+          setQuestionOpen(data.question_open ?? true)
           setLoading(false)
+          supabase
+            .from('players')
+            .select('*')
+            .eq('session_id', data.id)
+            .order('joined_at')
+            .then(({ data: existingPlayers }) => {
+              if (existingPlayers) {
+                setPlayers(existingPlayers)
+                setPlayerCount(existingPlayers.length)
+              }
+            })
         })
     } else {
       supabase
@@ -70,7 +87,8 @@ export default function Host() {
 
   useEffect(() => {
     if (!sessionId) return
-    const channel = supabase
+
+    const sessionChannel = supabase
       .channel(`host-session-${sessionId}`)
       .on(
         'postgres_changes',
@@ -78,11 +96,67 @@ export default function Host() {
         (payload) => {
           setSessionState(payload.new.state)
           setCurrentQuestionIndex(payload.new.current_question_index)
+          setQuestionOpen(payload.new.question_open ?? true)
         }
       )
       .subscribe()
-    return () => supabase.removeChannel(channel)
+
+    const playersChannel = supabase
+      .channel(`players-${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'players', filter: `session_id=eq.${sessionId}` },
+        (payload) => {
+          setPlayerCount((c) => c + 1)
+          setPlayers((prev) => [...prev, payload.new])
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(sessionChannel)
+      supabase.removeChannel(playersChannel)
+    }
   }, [sessionId])
+
+  // Re-subscribe to player_answers whenever the current question changes
+  useEffect(() => {
+    if (!sessionId || sessionState !== 'active') return
+
+    setAnswerCount(0)
+
+    // We need the question id for the current index — fetch it first
+    supabase
+      .from('questions')
+      .select('id')
+      .eq('quiz_id', quizId)
+      .order('order_index')
+      .then(({ data: qs }) => {
+        if (!qs || !qs[currentQuestionIndex]) return
+        const questionId = qs[currentQuestionIndex].id
+
+        if (answersChannelRef.current) {
+          supabase.removeChannel(answersChannelRef.current)
+        }
+
+        const ch = supabase
+          .channel(`answers-${sessionId}`)
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'player_answers', filter: `question_id=eq.${questionId}` },
+            () => { setAnswerCount((c) => c + 1) }
+          )
+          .subscribe()
+        answersChannelRef.current = ch
+      })
+
+    return () => {
+      if (answersChannelRef.current) {
+        supabase.removeChannel(answersChannelRef.current)
+        answersChannelRef.current = null
+      }
+    }
+  }, [sessionId, currentQuestionIndex, sessionState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createSession(selectedQuizId) {
     const code = generateJoinCode()
@@ -121,7 +195,16 @@ export default function Host() {
     const next = currentQuestionIndex + 1
     const { error } = await supabase
       .from('sessions')
-      .update({ current_question_index: next })
+      .update({ current_question_index: next, question_open: true })
+      .eq('id', sessionId)
+    if (error) { setError(error.message); return }
+  }
+
+  async function closeQuestion() {
+    if (!questionOpen) return
+    const { error } = await supabase
+      .from('sessions')
+      .update({ question_open: false })
       .eq('id', sessionId)
     if (error) { setError(error.message); return }
   }
@@ -152,13 +235,13 @@ export default function Host() {
             <div className="flex flex-col items-center gap-4 w-full">
               <div className="flex items-center gap-2 text-slate-400">
                 <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                <span className="text-sm">Waiting for players…</span>
+                <span className="text-sm">{playerCount} player(s) joined</span>
               </div>
               <button
                 onClick={startGame}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors"
               >
-                Start game
+                Start game ({playerCount} players)
               </button>
             </div>
           )}
@@ -168,6 +251,18 @@ export default function Host() {
               <p className="text-slate-300 text-sm">
                 Question <span className="text-white font-bold">{currentQuestionIndex + 1}</span> / {totalQuestions}
               </p>
+              <p className="text-slate-400 text-sm">
+                {questionOpen
+                  ? `${answerCount} / ${playerCount} answered`
+                  : 'Results shown'}
+              </p>
+              <button
+                onClick={closeQuestion}
+                disabled={!questionOpen}
+                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+              >
+                Close question
+              </button>
               <button
                 onClick={nextQuestion}
                 disabled={currentQuestionIndex >= totalQuestions - 1}
