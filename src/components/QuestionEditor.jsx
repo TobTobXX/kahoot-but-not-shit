@@ -1,4 +1,4 @@
-export default function QuestionEditor({ index, question, onChange, onDelete }) {
+export default function QuestionEditor({ index, question, onChange, onDelete, canDelete = true }) {
   function update(field, value) {
     onChange({ ...question, [field]: value })
   }
@@ -33,13 +33,14 @@ export default function QuestionEditor({ index, question, onChange, onDelete }) 
     <div className="bg-slate-800 rounded-xl p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <span className="text-slate-400 text-sm font-medium">Question {index + 1}</span>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="text-sm text-red-400 hover:text-red-300 transition-colors"
-        >
-          Delete
-        </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={!canDelete}
+            className="text-sm text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            Delete
+          </button>
       </div>
 
       <div className="flex flex-col gap-1">

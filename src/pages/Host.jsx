@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 function SlotIcon({ name, className }) {
   const size = 40
@@ -37,9 +38,11 @@ function generateJoinCode() {
 }
 
 export default function Host() {
+  const { user } = useAuth()
   const { sessionId: urlSessionId } = useParams()
   const navigate = useNavigate()
-  const [quizzes, setQuizzes] = useState([])
+  const [publicQuizzes, setPublicQuizzes] = useState([])
+  const [ownQuizzes, setOwnQuizzes] = useState([])
   const [joinCode, setJoinCode] = useState(null)
   const [sessionId, setSessionId] = useState(null)
   const [quizId, setQuizId] = useState(null)
@@ -57,6 +60,10 @@ export default function Host() {
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const answersChannelRef = useRef(null)
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+  }
 
   useEffect(() => {
     if (urlSessionId) {
@@ -105,12 +112,22 @@ export default function Host() {
     } else {
       supabase
         .from('quizzes')
-        .select('id, title')
+        .select('id, title, creator_id, is_public')
+        .eq('is_public', true)
         .then(({ data, error }) => {
           if (error) setError(error.message)
-          else setQuizzes(data)
+          else setPublicQuizzes(data ?? [])
           setLoading(false)
         })
+      if (user) {
+        supabase
+          .from('quizzes')
+          .select('id, title, creator_id')
+          .eq('creator_id', user.id)
+          .then(({ data }) => {
+            if (data) setOwnQuizzes(data)
+          })
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- urlSessionId intentionally only read on mount
 
@@ -324,7 +341,7 @@ export default function Host() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <h1 className="text-3xl font-bold mb-8">Host</h1>
+      {joinCode && <h1 className="text-3xl font-bold mb-8">Host</h1>}
 
       {loading && <p className="text-slate-400">Loading…</p>}
       {error && <p className="text-red-400 mb-4">{error}</p>}
@@ -433,24 +450,86 @@ export default function Host() {
           )}
         </div>
       ) : (
-        <div className="w-full max-w-sm flex flex-col gap-3">
+        <div className="w-full max-w-md flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Host</h1>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/library"
+                  className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  My quizzes
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Log out
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                Sign in
+              </Link>
+            )}
+          </div>
+
           <Link
             to="/create"
             className="w-full text-center border-2 border-dashed border-slate-600 hover:border-indigo-500 hover:bg-indigo-950 text-slate-400 hover:text-indigo-300 font-semibold py-3 rounded-xl transition-colors"
           >
             + Create a new quiz
           </Link>
-          {quizzes.map((quiz) => (
-            <div key={quiz.id} className="bg-slate-800 rounded-xl px-5 py-4 flex items-center justify-between">
-              <span className="font-medium">{quiz.title}</span>
-              <button
-                onClick={() => createSession(quiz.id)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-              >
-                Create session
-              </button>
+
+          {ownQuizzes.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">My Quizzes</h2>
+              {ownQuizzes.map((quiz) => (
+                <div key={quiz.id} className="bg-slate-800 rounded-xl px-5 py-4 flex items-center justify-between">
+                  <span className="font-medium">{quiz.title}</span>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/edit/${quiz.id}`}
+                      className="text-sm text-slate-400 hover:text-white transition-colors px-2 py-1"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => createSession(quiz.id)}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Host
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {publicQuizzes.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Public Quizzes</h2>
+              {publicQuizzes.map((quiz) => (
+                <div key={quiz.id} className="bg-slate-800 rounded-xl px-5 py-4 flex items-center justify-between">
+                  <span className="font-medium">{quiz.title}</span>
+                  <button
+                    onClick={() => createSession(quiz.id)}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Host
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && publicQuizzes.length === 0 && ownQuizzes.length === 0 && (
+            <p className="text-slate-500 text-center py-8">No quizzes available.</p>
+          )}
         </div>
       )}
     </div>
