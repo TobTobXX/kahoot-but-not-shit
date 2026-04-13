@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Home from './pages/Home'
 import Host from './pages/Host'
@@ -14,33 +15,47 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function RedirectHandler() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const redirect = sessionStorage.getItem('redirect')
+    if (redirect) {
+      sessionStorage.removeItem('redirect')
+      navigate(redirect, { replace: true })
+    }
+  }, [navigate])
+  return null
+}
+
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/host" element={<Host />} />
-      <Route path="/host" element={<Host />} />
-      <Route path="/join" element={<Join />} />
-      <Route path="/play" element={<Play />} />
-      <Route
-        path="/create"
-        element={
-          <ProtectedRoute>
-            <Create />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/edit"
-        element={
-          <ProtectedRoute>
-            <Create />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/library" element={<Navigate to="/host" replace />} />
-    </Routes>
+    <>
+      <RedirectHandler />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/host" element={<Host />} />
+        <Route path="/join" element={<Join />} />
+        <Route path="/play" element={<Play />} />
+        <Route
+          path="/create"
+          element={
+            <ProtectedRoute>
+              <Create />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/edit"
+          element={
+            <ProtectedRoute>
+              <Create />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/library" element={<Navigate to="/host" replace />} />
+      </Routes>
+    </>
   )
 }
 
