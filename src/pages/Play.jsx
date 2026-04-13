@@ -49,6 +49,7 @@ export default function Play() {
   const sessionIdRef = useRef(null)
   const questionsRef = useRef([])
   const prevQuestionIndexRef = useRef(null)
+  const prevQuestionOpenRef = useRef(null)
   const currentQuestionSlotsRef = useRef(null)
   const channelRef = useRef(null)
   const [currentQuestionSlots, setCurrentQuestionSlots] = useState(null)
@@ -136,6 +137,9 @@ export default function Play() {
       setSessionId(session.id)
       sessionIdRef.current = session.id
       prevQuestionIndexRef.current = session.current_question_index
+      prevQuestionOpenRef.current = session.question_open
+
+      setCurrentQuestionSlots(session.current_question_slots ?? null)
 
       const quizId = session.quiz_id
 
@@ -189,12 +193,15 @@ export default function Play() {
             const newIndex = payload.new.current_question_index
             const newQuestionOpen = payload.new.question_open
             const newSlots = payload.new.current_question_slots ?? null
+            const prevOpen = prevQuestionOpenRef.current
 
             setSessionState(newState)
             setCurrentQuestionIndex(newIndex)
             setCurrentQuestionSlots(newSlots)
+            prevQuestionOpenRef.current = newQuestionOpen
 
             if (newIndex !== prevQuestionIndexRef.current) {
+              console.log('[REALTIME] index changed:', prevQuestionIndexRef.current, '->', newIndex, 'questions.length:', questionsRef.current.length)
               prevQuestionIndexRef.current = newIndex
               setSubmittedAnswerId(null)
               setAnswerSubmitted(false)
@@ -204,7 +211,6 @@ export default function Play() {
               setPointsEarned(0)
               setCorrectAnswerIds([])
               setCorrectSlotIndex(null)
-              setCurrentQuestionSlots(null)
             }
 
             if (!wasActiveRef.current && newState === 'active') {
@@ -222,12 +228,13 @@ export default function Play() {
                   }))
                   setQuestions(sorted)
                   questionsRef.current = sorted
+                  console.log('[REALTIME] questions loaded:', sorted.length)
                 })
             }
 
-            if (wasActiveRef.current && newQuestionOpen === false) {
-              const oldIndex = payload.old.current_question_index ?? newIndex
-              const closedQuestion = questionsRef.current[oldIndex]
+            if (wasActiveRef.current && prevOpen === true && newQuestionOpen === false) {
+              console.log('[REALTIME] open->closed, newIndex:', newIndex, 'questions.length:', questionsRef.current.length)
+              const closedQuestion = questionsRef.current[newIndex]
               const sid = sessionIdRef.current
               const pid = localStorage.getItem('player_id')
               const slots = payload.new.current_question_slots ?? null
