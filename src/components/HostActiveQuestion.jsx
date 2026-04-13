@@ -22,38 +22,33 @@ export default function HostActiveQuestion({
 }) {
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-900">
-      {/* Top bar: Question counter left, Game PIN center, Timer right */}
-      <div className="flex items-center justify-between px-6 py-4 bg-slate-800/50">
-        <div className="text-slate-400 text-base w-40">
-          Question <span className="text-white font-bold">{currentQuestionIndex + 1}</span> / {totalQuestions}
-        </div>
-
-        <div className="flex-1 flex justify-center">
-          {joinCode && (
-            <div className="bg-slate-700 px-6 py-2 rounded-full">
-              <span className="text-slate-400 text-base mr-3">Game PIN:</span>
-              <span className="text-white font-bold text-2xl tracking-wider">{joinCode}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Timer - prominent in top right */}
-        <div className="w-40 flex justify-end">
+      {/* Question row: Timer left, Question center, Answer count right */}
+      <div className="flex items-center justify-center gap-8 px-8 py-6">
+        {/* Timer - left of question, 50% bigger */}
+        <div className="w-32 flex justify-end">
           {timeRemaining !== null && (
-            <div className="bg-indigo-600 text-white font-bold text-4xl px-6 py-2 rounded-full tabular-nums">
+            <div className="text-6xl font-bold text-white tabular-nums">
               {timeRemaining}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Question text */}
-      <div className="px-8 py-6">
-        {question && (
-          <h1 className="text-6xl md:text-7xl font-bold text-center text-white leading-tight">
-            {question.question_text}
-          </h1>
-        )}
+        {/* Question text - center */}
+        <div className="flex-1 max-w-4xl">
+          {question && (
+            <h1 className="text-6xl md:text-7xl font-bold text-center text-white leading-tight">
+              {question.question_text}
+            </h1>
+          )}
+        </div>
+
+        {/* Answer count - right of question, slightly smaller than timer */}
+        <div className="w-32">
+          <div className="text-5xl font-bold text-white tabular-nums">
+            {answerCount}
+          </div>
+          <div className="text-2xl text-slate-500">/ {playerCount}</div>
+        </div>
       </div>
 
       {/* Main content area: answers take most space */}
@@ -80,9 +75,17 @@ export default function HostActiveQuestion({
         )}
       </div>
 
-      {/* Bottom bar: Controls center, answer count + fullscreen right */}
+      {/* Bottom bar: Join code left, controls center, question count right */}
       <div className="flex items-center justify-between px-6 py-4 bg-slate-800/50">
-        <div className="w-40" />
+        {/* Join code - lower left */}
+        <div className="w-48">
+          {joinCode && (
+            <div className="text-slate-400 text-base">
+              <span className="mr-2">PIN:</span>
+              <span className="text-white font-bold text-2xl tracking-wider">{joinCode}</span>
+            </div>
+          )}
+        </div>
 
         {/* Navigation controls */}
         <div className="flex-1 flex justify-center gap-4">
@@ -108,11 +111,11 @@ export default function HostActiveQuestion({
           </button>
         </div>
 
-        {/* Right side: Answer count + Fullscreen */}
-        <div className="w-40 flex items-center justify-end gap-4">
-          <div className="text-slate-400 text-base text-right">
-            <span className="font-bold text-white text-xl">{answerCount}</span>
-            <span className="text-slate-500"> / {playerCount}</span>
+        {/* Question count - bottom right, slightly bigger than answer count was */}
+        <div className="w-48 flex items-center justify-end gap-4">
+          <div className="text-slate-400 text-base">
+            <span className="font-bold text-white text-3xl">{currentQuestionIndex + 1}</span>
+            <span className="text-slate-500"> / {totalQuestions}</span>
           </div>
 
           <button
