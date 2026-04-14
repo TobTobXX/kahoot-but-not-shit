@@ -1,10 +1,25 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
 // Shared header bar — appears on all pages except Play and HostSession during active game.
 export default function Header() {
   const { user, loading, signOut } = useAuth()
   const navigate = useNavigate()
+  const [username, setUsername] = useState(null)
+
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => setUsername(data?.username ?? null))
+  }, [user])
+
+  const displayName = username || user?.email
 
   return (
     <header className="flex items-center gap-4 px-6 py-4">
@@ -39,12 +54,11 @@ export default function Header() {
           >
             Create
           </button>
-          <span className="text-sm text-gray-400">{user.email}</span>
           <Link
             to="/profile"
             className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
           >
-            Profile
+            {displayName}
           </Link>
           <button
             onClick={signOut}
