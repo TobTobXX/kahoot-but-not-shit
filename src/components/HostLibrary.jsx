@@ -47,7 +47,7 @@ function QuizCard({ quiz, isOwn, starred, onHost, onEdit, onExport, onDelete, on
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-gray-900 leading-tight line-clamp-2">{quiz.title}</p>
           {quiz.created_at && (
-            <p className="text-xs text-gray-400 mt-0.5">{new Date(quiz.created_at).toLocaleDateString()}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{quiz.created_at.slice(0, 10)}</p>
           )}
         </div>
 

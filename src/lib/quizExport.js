@@ -120,7 +120,7 @@ export async function importQuiz(supabase, userId, jsonString) {
 
   const { error } = await supabase.rpc('save_quiz', {
     p_title: data.title,
-    p_is_public: data.is_public ?? true,
+    p_is_public: data.is_public ?? false,
     p_questions: questions,
   })
 

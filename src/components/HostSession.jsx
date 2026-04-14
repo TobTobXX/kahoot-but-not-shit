@@ -22,7 +22,7 @@ export default function HostSession({ sessionId }) {
   const [answerCount, setAnswerCount] = useState(0)
   const [currentQuestionSlots, setCurrentQuestionSlots] = useState(null)
   const [shuffleAnswers, setShuffleAnswers] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(true)
   const [reviewAnswerCounts, setReviewAnswerCounts] = useState({}) // answer_id → count
   const [reviewLeaderboard, setReviewLeaderboard] = useState(null)
   const [hostQuestions, setHostQuestions] = useState([])

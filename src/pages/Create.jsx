@@ -31,7 +31,7 @@ export default function Create() {
   const isEditMode = Boolean(quizId)
 
   const [title, setTitle] = useState('')
-  const [isPublic, setIsPublic] = useState(true)
+  const [isPublic, setIsPublic] = useState(false)
   const [questions, setQuestions] = useState([blankQuestion()])
   const [isPro, setIsPro] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -60,7 +60,7 @@ export default function Create() {
           return
         }
         setTitle(data.title)
-        setIsPublic(data.is_public ?? true)
+        setIsPublic(data.is_public ?? false)
 
         supabase
           .from('questions')
