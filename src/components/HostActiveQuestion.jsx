@@ -9,15 +9,12 @@ export default function HostActiveQuestion({
   currentQuestionIndex,
   totalQuestions,
   timeRemaining,
-  questionOpen,
   slots,
   answerCount,
   playerCount,
-  loadingSlots,
   isFullscreen,
   onToggleFullscreen,
   onClose,
-  onNext,
   onEnd,
 }) {
   return (
@@ -90,17 +87,9 @@ export default function HostActiveQuestion({
         <div className="flex-1 flex justify-center gap-4">
           <button
             onClick={onClose}
-            disabled={!questionOpen}
-            className="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 px-28 rounded-lg transition-colors text-2xl"
+            className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-5 px-28 rounded-lg transition-colors text-2xl"
           >
             Finish
-          </button>
-          <button
-            onClick={onNext}
-            disabled={currentQuestionIndex >= totalQuestions - 1 || loadingSlots}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 px-28 rounded-lg transition-colors text-2xl"
-          >
-            {loadingSlots ? '…' : 'Next'}
           </button>
           <button
             onClick={onEnd}

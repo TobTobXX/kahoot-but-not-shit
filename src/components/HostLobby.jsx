@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 const MAX_VISIBLE_PLAYERS = 20
 
 // Waiting room shown before the host starts the game.
-export default function HostLobby({ joinCode, joinUrl, players, shuffleAnswers, onShuffleChange, loadingSlots, onStart }) {
+export default function HostLobby({ joinCode, joinUrl, players, shuffleAnswers, onShuffleChange, showLeaderboard, onShowLeaderboardChange, loadingSlots, onStart }) {
   const [copied, setCopied] = useState(false)
 
   function copyCode() {
@@ -70,6 +70,15 @@ export default function HostLobby({ joinCode, joinUrl, players, shuffleAnswers, 
             className="w-4 h-4 accent-indigo-500"
           />
           Shuffle answer positions
+        </label>
+        <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showLeaderboard}
+            onChange={(e) => onShowLeaderboardChange(e.target.checked)}
+            className="w-4 h-4 accent-indigo-500"
+          />
+          Show top 5 between questions
         </label>
         <button
           onClick={onStart}

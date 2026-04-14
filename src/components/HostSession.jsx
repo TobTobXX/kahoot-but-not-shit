@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import HostLobby from './HostLobby'
 import HostActiveQuestion from './HostActiveQuestion'
+import HostQuestionReview from './HostQuestionReview'
 import HostResults from './HostResults'
 import { byOrderIndex } from '../lib/utils'
 
@@ -20,6 +21,9 @@ export default function HostSession({ sessionId }) {
   const [answerCount, setAnswerCount] = useState(0)
   const [currentQuestionSlots, setCurrentQuestionSlots] = useState(null)
   const [shuffleAnswers, setShuffleAnswers] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [reviewAnswerCounts, setReviewAnswerCounts] = useState({}) // answer_id → count
+  const [reviewLeaderboard, setReviewLeaderboard] = useState(null)
   const [hostQuestions, setHostQuestions] = useState([])
   const [timeRemaining, setTimeRemaining] = useState(null)
   const [error, setError] = useState(null)
@@ -183,6 +187,41 @@ export default function HostSession({ sessionId }) {
   // Keep questionOpenRef in sync for use inside the timer callback
   useEffect(() => { questionOpenRef.current = questionOpen }, [questionOpen])
 
+  // Fetch review data (answer distribution + optional leaderboard) when a question closes
+  useEffect(() => {
+    if (questionOpen || sessionState !== 'active') {
+      setReviewAnswerCounts({})
+      setReviewLeaderboard(null)
+      return
+    }
+    const questionId = hostQuestions[currentQuestionIndex]?.id
+    const playerIds = players.map((p) => p.id)
+    if (!questionId || playerIds.length === 0) return
+
+    supabase
+      .from('player_answers')
+      .select('answer_id')
+      .eq('question_id', questionId)
+      .in('player_id', playerIds)
+      .then(({ data }) => {
+        const counts = {}
+        for (const pa of data ?? []) {
+          counts[pa.answer_id] = (counts[pa.answer_id] ?? 0) + 1
+        }
+        setReviewAnswerCounts(counts)
+      })
+
+    if (showLeaderboard) {
+      supabase
+        .from('players')
+        .select('id, nickname, score')
+        .eq('session_id', sessionId)
+        .order('score', { ascending: false })
+        .limit(5)
+        .then(({ data }) => setReviewLeaderboard(data ?? []))
+    }
+  }, [questionOpen, currentQuestionIndex, sessionState]) // eslint-disable-line react-hooks/exhaustive-deps -- reads current snapshot of players/hostQuestions/sessionId/showLeaderboard
+
   // Countdown timer — resets when a new question opens
   useEffect(() => {
     if (!questionOpen || sessionState !== 'active') {
@@ -338,26 +377,42 @@ export default function HostSession({ sessionId }) {
             players={players}
             shuffleAnswers={shuffleAnswers}
             onShuffleChange={setShuffleAnswers}
+            showLeaderboard={showLeaderboard}
+            onShowLeaderboardChange={setShowLeaderboard}
             loadingSlots={loadingSlots}
             onStart={startGame}
           />
         )}
 
-        {sessionState === 'active' && (
+        {sessionState === 'active' && questionOpen && (
           <HostActiveQuestion
             joinCode={joinCode}
             question={hostQuestions[currentQuestionIndex]}
             currentQuestionIndex={currentQuestionIndex}
             totalQuestions={totalQuestions}
             timeRemaining={timeRemaining}
-            questionOpen={questionOpen}
             slots={currentQuestionSlots}
             answerCount={answerCount}
             playerCount={players.length}
-            loadingSlots={loadingSlots}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
             onClose={closeQuestion}
+            onEnd={endGame}
+          />
+        )}
+
+        {sessionState === 'active' && !questionOpen && (
+          <HostQuestionReview
+            joinCode={joinCode}
+            question={hostQuestions[currentQuestionIndex]}
+            currentQuestionIndex={currentQuestionIndex}
+            totalQuestions={totalQuestions}
+            slots={currentQuestionSlots}
+            answerCounts={reviewAnswerCounts}
+            leaderboard={showLeaderboard ? reviewLeaderboard : null}
+            loadingSlots={loadingSlots}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
             onNext={nextQuestion}
             onEnd={endGame}
           />
