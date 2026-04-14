@@ -5,6 +5,7 @@ import HostLobby from './HostLobby'
 import HostActiveQuestion from './HostActiveQuestion'
 import HostQuestionReview from './HostQuestionReview'
 import HostResults from './HostResults'
+import Header from './Header'
 import { byOrderIndex } from '../lib/utils'
 
 // Shown at /host/:sessionId. Manages the live game: waiting room, active
@@ -362,16 +363,7 @@ export default function HostSession({ sessionId }) {
 
   return (
     <div ref={containerRef} className="min-h-screen flex flex-col">
-      <div className="flex justify-start px-6 py-4">
-        {sessionState === 'waiting' && (
-          <button
-            onClick={() => navigate('/host')}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            &larr; Back to library
-          </button>
-        )}
-      </div>
+      {sessionState === 'waiting' && <Header />}
 
       <div className="flex-1 flex flex-col items-center justify-center px-4">
         {error && <p className="text-red-400 mb-4">{error}</p>}

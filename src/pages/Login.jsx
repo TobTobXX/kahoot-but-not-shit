@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import Header from '../components/Header'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -47,14 +48,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="flex justify-start px-6 py-4">
-        <button
-          onClick={() => navigate('/')}
-          className="text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          &larr; Back to home
-        </button>
-      </div>
+      <Header />
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8 flex flex-col gap-6">
           <div className="text-center">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import Header from '../components/Header'
 
 export default function Join() {
   const [searchParams] = useSearchParams()
@@ -105,16 +106,21 @@ export default function Join() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 gap-4">
-        <p className="text-red-400 text-2xl font-bold">Error</p>
-        <p className="text-slate-300">{error}</p>
-        <a href="/" className="text-indigo-400 hover:underline text-sm">Back to home</a>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <div className="flex-1 flex flex-col items-center justify-center px-4 gap-4">
+          <p className="text-red-400 text-2xl font-bold">Error</p>
+          <p className="text-slate-300">{error}</p>
+          <a href="/" className="text-indigo-400 hover:underline text-sm">Back to home</a>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
       <h1 className="text-3xl font-bold mb-2 text-center">Join game</h1>
       <p className="text-slate-400 mb-8 text-center font-mono tracking-widest">{code}</p>
       <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8">
@@ -138,6 +144,7 @@ export default function Join() {
             Join
           </button>
         </form>
+      </div>
       </div>
     </div>
   )

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import QuestionEditor from '../components/QuestionEditor'
+import Header from '../components/Header'
 import { byOrderIndex } from '../lib/utils'
 
 // crypto.randomUUID() gives each question a stable client-side ID before it's saved.
@@ -279,14 +280,7 @@ export default function Create() {
   if (authError) {
     return (
       <div className="min-h-screen flex flex-col">
-        <div className="flex justify-start px-6 py-4">
-          <button
-            onClick={() => navigate('/host')}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            &larr; Back
-          </button>
-        </div>
+        <Header />
         <div className="flex-1 flex items-center justify-center">
           <p className="text-red-400">{authError}</p>
         </div>
@@ -296,14 +290,7 @@ export default function Create() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-900">
-      <div className="flex justify-start px-6 py-4">
-        <button
-          onClick={() => navigate('/host')}
-          className="text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          &larr; Back
-        </button>
-      </div>
+      <Header />
       <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Quiz' : 'Create Quiz'}</h1>

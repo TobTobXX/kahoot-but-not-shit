@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import Header from './Header'
 
 function generateJoinCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -14,7 +15,7 @@ function generateJoinCode() {
 
 // Shown at /host (no active session). Lists quizzes and lets the host start a session.
 export default function HostLibrary() {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [publicQuizzes, setPublicQuizzes] = useState([])
   const [ownQuizzes, setOwnQuizzes] = useState([])
@@ -73,32 +74,7 @@ export default function HostLibrary() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="flex justify-between items-center px-6 py-4">
-        <button
-          onClick={() => navigate('/')}
-          className="text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          &larr; Home
-        </button>
-        {user ? (
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-500">{user.email}</span>
-            <button
-              onClick={signOut}
-              className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        ) : (
-          <Link
-            to="/login"
-            className="text-sm text-slate-300 hover:text-white transition-colors"
-          >
-            Sign in
-          </Link>
-        )}
-      </div>
+      <Header />
 
       <div className="flex-1 flex flex-col items-center justify-center px-4">
         <div className="w-full max-w-md flex flex-col gap-6">

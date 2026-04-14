@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import SlotIcon from './SlotIcon'
+import Header from './Header'
 import { SLOT_COLOR_HEX } from '../lib/slots'
 
 // Post-session results screen shown to the host when state === 'finished'.
 // Displays the final leaderboard and a per-question breakdown.
 export default function HostResults({ sessionId, quizId, onHostAgain }) {
-  const navigate = useNavigate()
   const [leaderboard, setLeaderboard] = useState([])
   const [questions, setQuestions] = useState([])
   // Map: question_id → { slots: [...], answers: [...], playerAnswers: [...] }
@@ -85,16 +84,10 @@ export default function HostResults({ sessionId, quizId, onHostAgain }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+      <Header />
+      <div className="flex items-center justify-between px-6 py-2 border-b border-slate-700">
         <h1 className="text-xl font-bold">Game over</h1>
         <div className="flex gap-3">
-          <button
-            onClick={() => navigate('/host')}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            ← Back to library
-          </button>
           <button
             onClick={onHostAgain}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition-colors"

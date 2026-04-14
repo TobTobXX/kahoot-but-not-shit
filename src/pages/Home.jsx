@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
+import Header from '../components/Header'
 
 export default function Home() {
   const [code, setCode] = useState('')
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState(null)
   const navigate = useNavigate()
-  const { user, loading, signOut } = useAuth()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -61,33 +60,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
 
-      {/* Top bar */}
-      <div className="flex justify-end gap-3 px-6 py-4">
-        {!loading && !user && (
-          <button
-            onClick={() => navigate('/login')}
-            className="text-sm text-slate-300 hover:text-white transition-colors"
-          >
-            Login
-          </button>
-        )}
-        {!loading && user && (
-          <>
-            <button
-              onClick={() => navigate('/create')}
-              className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors"
-            >
-              Create
-            </button>
-            <button
-              onClick={signOut}
-              className="text-sm text-slate-400 hover:text-white transition-colors"
-            >
-              Logout
-            </button>
-          </>
-        )}
-      </div>
+      <Header />
 
       {/* Center content */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 gap-10">
