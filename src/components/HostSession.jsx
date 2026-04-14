@@ -74,7 +74,7 @@ export default function HostSession({ sessionId }) {
         if (data.state === 'active') {
           supabase
             .from('questions')
-            .select('id, question_text, time_limit, points, answers(id, answer_text, order_index, is_correct)')
+            .select('id, question_text, time_limit, points, image_url, answers(id, answer_text, order_index, is_correct)')
             .eq('quiz_id', data.quiz_id)
             .order('order_index')
             .then(({ data: qs }) => {
@@ -261,7 +261,7 @@ export default function HostSession({ sessionId }) {
 
     const { data: qs } = await supabase
       .from('questions')
-      .select('id, question_text, time_limit, points, answers(id, answer_text, order_index, is_correct)')
+      .select('id, question_text, time_limit, points, image_url, answers(id, answer_text, order_index, is_correct)')
       .eq('quiz_id', quizId)
       .order('order_index')
     const sortedQs = qs ? qs.map((q) => ({ ...q, answers: [...q.answers].sort(byOrderIndex) })) : []

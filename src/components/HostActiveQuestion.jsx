@@ -49,6 +49,17 @@ export default function HostActiveQuestion({
         </div>
       </div>
 
+      {/* Question image */}
+      {question?.image_url && (
+        <div className="flex justify-center px-4 pb-2">
+          <img
+            src={question.image_url}
+            alt=""
+            className="max-h-56 object-contain rounded-xl"
+          />
+        </div>
+      )}
+
       {/* Main content area: answers take most space */}
       <div className="flex-1 flex flex-col px-4 pb-4 min-h-0">
         {/* Answer grid - large buttons */}

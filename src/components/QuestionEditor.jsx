@@ -102,6 +102,14 @@ export default function QuestionEditor({ index, question, onChange, onDelete, ca
         </div>
       </div>
 
+      {isPro && question.image_url && (
+        <img
+          src={question.image_url}
+          alt=""
+          className="w-full max-h-48 object-contain rounded-lg border border-gray-200"
+        />
+      )}
+
       <div className="flex flex-col gap-2">
         <label className="text-xs text-gray-500">Answer options</label>
         {question.answers.map((answer, i) => (
