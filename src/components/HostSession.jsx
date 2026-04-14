@@ -187,6 +187,13 @@ export default function HostSession({ sessionId }) {
   // Keep questionOpenRef in sync for use inside the timer callback
   useEffect(() => { questionOpenRef.current = questionOpen }, [questionOpen])
 
+  // Auto-close the question when every player has answered
+  useEffect(() => {
+    if (!questionOpen || sessionState !== 'active') return
+    if (players.length === 0 || answerCount < players.length) return
+    if (questionOpenRef.current) closeQuestion() // eslint-disable-line react-hooks/immutability
+  }, [answerCount, questionOpen, sessionState, players]) // eslint-disable-line react-hooks/exhaustive-deps -- closeQuestion is stable
+
   // Fetch review data (answer distribution + optional leaderboard) when a question closes
   useEffect(() => {
     if (questionOpen || sessionState !== 'active') {
@@ -235,7 +242,6 @@ export default function HostSession({ sessionId }) {
       setTimeRemaining((t) => {
         if (t === null || t <= 0) {
           clearInterval(interval)
-          // eslint-disable-next-line react-hooks/immutability
           if (questionOpenRef.current) closeQuestion()
           return 0
         }

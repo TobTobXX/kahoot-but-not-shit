@@ -65,7 +65,7 @@ export default function HostQuestionReview({
 
         {/* Top-5 leaderboard (optional) */}
         {leaderboard && leaderboard.length > 0 && (
-          <div className="w-72 flex flex-col gap-3 justify-center shrink-0">
+          <div className="w-96 flex flex-col gap-3 justify-center shrink-0">
             <p className="text-slate-400 text-lg font-semibold text-center mb-1">Top players</p>
             {leaderboard.map((p, i) => {
               const medal = i === 0 ? 'text-yellow-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-slate-500'
