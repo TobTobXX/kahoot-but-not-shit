@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import SlotIcon from '../components/SlotIcon'
 import FeedbackView from '../components/FeedbackView'
-import { SLOT_COLOR_CLASSES } from '../lib/slots'
+import { SLOT_COLOR_HEX } from '../lib/slots'
 import { byOrderIndex } from '../lib/utils'
 
 export default function Play() {
@@ -280,29 +280,29 @@ export default function Play() {
     setAnswerSubmitted(true)
   }
 
-  // Returns the full className for a slot, covering all interaction states.
+  // Returns { className, style } for a slot, covering all interaction states.
   // Used by both the active-question grid (buttons) and the feedback grid (divs).
-  function slotClassName(slotIndex, color) {
-    const base = 'h-32 rounded-2xl flex flex-col items-center justify-center gap-2 transition-opacity'
-    const bg = SLOT_COLOR_CLASSES[color]
+  function slotProps(slotIndex, color) {
+    const base = 'h-full rounded-2xl flex flex-col items-center justify-center gap-2 transition-opacity'
+    const style = { backgroundColor: SLOT_COLOR_HEX[color] }
 
     if (feedbackShown) {
       if (correctSlotIndex === slotIndex) {
-        return `${base} ${bg} ring-4 ring-emerald-300 cursor-default`
+        return { className: `${base} ring-4 ring-emerald-300 cursor-default`, style }
       }
       if (submittedAnswerId !== null && currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
-        return `${base} ${bg} ring-4 ring-white cursor-default`
+        return { className: `${base} ring-4 ring-white cursor-default`, style }
       }
-      return `${base} ${bg} opacity-40 cursor-default`
+      return { className: `${base} opacity-40 cursor-default`, style }
     }
 
     if (answerSubmitted || alreadyAnswered) {
       if (currentQuestionSlots?.find((s) => s.slot_index === slotIndex)?.answer_id === submittedAnswerId) {
-        return `${base} ${bg} ring-4 ring-white cursor-default`
+        return { className: `${base} ring-4 ring-white cursor-default`, style }
       }
-      return `${base} ${bg} opacity-40 cursor-default`
+      return { className: `${base} opacity-40 cursor-default`, style }
     }
-    return `${base} ${bg} cursor-pointer active:brightness-110`
+    return { className: `${base} cursor-pointer active:brightness-110`, style }
   }
 
   // Loading / error states
@@ -340,7 +340,7 @@ export default function Play() {
       </div>
 
       {/* Inner content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 min-h-0">
 
         {/* Waiting */}
         {sessionState === 'waiting' && (
@@ -378,7 +378,7 @@ export default function Play() {
             isCorrect={isCorrect}
             pointsEarned={pointsEarned}
             slots={currentQuestionSlots}
-            slotClassName={slotClassName}
+            slotProps={slotProps}
             leaderboard={leaderboard}
             playerId={playerId}
           />
@@ -386,18 +386,22 @@ export default function Play() {
 
         {/* Question and answers */}
         {question && !feedbackShown && currentQuestionSlots && (
-          <div className="w-full max-w-xl flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-3">
-              {currentQuestionSlots.map((slot) => (
-                <button
-                  key={slot.slot_index}
-                  onClick={() => submitAnswer(slot.slot_index)}
-                  disabled={answerSubmitted || alreadyAnswered}
-                  className={slotClassName(slot.slot_index, slot.color)}
-                >
-                  <SlotIcon name={slot.icon} />
-                </button>
-              ))}
+          <div className="w-full max-w-xl flex flex-col gap-6 flex-1 min-h-0">
+            <div className="grid grid-cols-2 grid-rows-2 gap-3 flex-1">
+              {currentQuestionSlots.map((slot) => {
+                const { className, style } = slotProps(slot.slot_index, slot.color)
+                return (
+                  <button
+                    key={slot.slot_index}
+                    onClick={() => submitAnswer(slot.slot_index)}
+                    disabled={answerSubmitted || alreadyAnswered}
+                    className={className}
+                    style={style}
+                  >
+                    <SlotIcon name={slot.icon} />
+                  </button>
+                )
+              })}
             </div>
             {answerSubmitted && (
               <p className="text-center text-slate-300 text-sm">Answer submitted</p>

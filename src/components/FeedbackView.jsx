@@ -2,7 +2,7 @@ import SlotIcon from './SlotIcon'
 
 // Shown on the player screen after a question closes: result banner,
 // slot feedback grid, and live leaderboard while waiting for next question.
-export default function FeedbackView({ isCorrect, pointsEarned, slots, slotClassName, leaderboard, playerId }) {
+export default function FeedbackView({ isCorrect, pointsEarned, slots, slotProps, leaderboard, playerId }) {
   return (
     <div className="w-full max-w-xl flex flex-col gap-4">
       {/* Result banner */}
@@ -18,11 +18,14 @@ export default function FeedbackView({ isCorrect, pointsEarned, slots, slotClass
 
       {/* Slot grid with correct/wrong highlights */}
       <div className="grid grid-cols-2 gap-3">
-        {slots.map((slot) => (
-          <div key={slot.slot_index} className={slotClassName(slot.slot_index, slot.color)}>
-            <SlotIcon name={slot.icon} />
-          </div>
-        ))}
+        {slots.map((slot) => {
+          const { className, style } = slotProps(slot.slot_index, slot.color)
+          return (
+            <div key={slot.slot_index} className={className} style={style}>
+              <SlotIcon name={slot.icon} />
+            </div>
+          )
+        })}
       </div>
 
       {/* Leaderboard */}
