@@ -47,17 +47,24 @@ export default function HostLibrary() {
   }, [user])
 
   async function createSession(quizId) {
-    const code = generateJoinCode()
-    const { data, error: err } = await supabase
-      .from('sessions')
-      .insert({ quiz_id: quizId, join_code: code, state: 'waiting' })
-      .select('id')
-      .single()
-    if (err) {
-      setError(err.message)
-    } else {
-      navigate(`/host?sessionId=${data.id}`)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateJoinCode()
+      const { data, error: err } = await supabase
+        .from('sessions')
+        .insert({ quiz_id: quizId, join_code: code, state: 'waiting' })
+        .select('id')
+        .single()
+      if (!err) {
+        navigate(`/host?sessionId=${data.id}`)
+        return
+      }
+      // 23505 = unique_violation; another session grabbed this code — retry
+      if (err.code !== '23505') {
+        setError(err.message)
+        return
+      }
     }
+    setError('Failed to generate a unique join code. Please try again.')
   }
 
   async function handleDelete(quizId) {
