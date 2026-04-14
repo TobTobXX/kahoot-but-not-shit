@@ -80,7 +80,7 @@ export default function Play() {
     if (sid) {
       const { data: lb } = await supabase
         .from('players')
-        .select('id, nickname, score')
+        .select('id, nickname, score, streak')
         .eq('session_id', sid)
         .order('score', { ascending: false })
         .order('nickname')
@@ -256,7 +256,7 @@ export default function Play() {
     if (sessionState !== 'finished' || !sessionId) return
     supabase
       .from('players')
-      .select('id, nickname, score')
+      .select('id, nickname, score, streak')
       .eq('session_id', sessionId)
       .order('score', { ascending: false })
       .order('nickname')
@@ -383,7 +383,7 @@ export default function Play() {
                   >
                     <span className="text-slate-400 font-mono w-6 text-right">{i + 1}</span>
                     <span className="flex-1 font-semibold">{p.nickname}</span>
-                    <span className="text-slate-300">{p.score}</span>
+                    <span className="text-slate-300">{p.score}{Math.max(0, (p.streak ?? 0) - 2) > 0 && ' ' + '🔥'.repeat(Math.max(0, (p.streak ?? 0) - 2))}</span>
                   </div>
                 ))}
               </div>
