@@ -75,29 +75,22 @@ export default function Join() {
     e.preventDefault()
     setSubmitError(null)
 
-    const { data: session } = await supabase
-      .from('sessions')
-      .select('id, state')
-      .eq('join_code', code)
-      .maybeSingle()
+    const { data, error: joinError } = await supabase.rpc('join_session', {
+      p_join_code: code,
+      p_nickname: nickname,
+    })
 
-    if (!session || session.state === 'finished') {
-      setSubmitError('Session not found or already ended')
+    if (joinError) {
+      setSubmitError(joinError.message)
       return
     }
 
-    const { data: player, error: insertError } = await supabase
-      .from('players')
-      .insert({ session_id: session.id, nickname })
-      .select('id')
-      .single()
-
-    if (insertError) {
-      setSubmitError(insertError.message)
-      return
-    }
-
-    localStorage.setItem(`player_${code}`, JSON.stringify({ player_id: player.id, nickname, joined_at: Date.now() }))
+    localStorage.setItem(`player_${code}`, JSON.stringify({
+      player_id: data.player_id,
+      player_secret: data.secret,
+      nickname,
+      joined_at: Date.now(),
+    }))
     navigate(`/play?code=${code}`)
   }
 

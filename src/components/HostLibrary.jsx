@@ -4,15 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Header from './Header'
 
-function generateJoinCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = ''
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return code
-}
-
 // Shown at /host (no active session). Lists quizzes and lets the host start a session.
 export default function HostLibrary() {
   const { user } = useAuth()
@@ -47,24 +38,10 @@ export default function HostLibrary() {
   }, [user])
 
   async function createSession(quizId) {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = generateJoinCode()
-      const { data, error: err } = await supabase
-        .from('sessions')
-        .insert({ quiz_id: quizId, join_code: code, state: 'waiting' })
-        .select('id')
-        .single()
-      if (!err) {
-        navigate(`/host?sessionId=${data.id}`)
-        return
-      }
-      // 23505 = unique_violation; another session grabbed this code — retry
-      if (err.code !== '23505') {
-        setError(err.message)
-        return
-      }
-    }
-    setError('Failed to generate a unique join code. Please try again.')
+    const { data, error: err } = await supabase.rpc('create_session', { p_quiz_id: quizId })
+    if (err) { setError(err.message); return }
+    localStorage.setItem(`host_${data.session_id}`, data.host_secret)
+    navigate(`/host?sessionId=${data.session_id}`)
   }
 
   async function handleDelete(quizId) {

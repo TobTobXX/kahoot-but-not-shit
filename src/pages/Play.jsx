@@ -264,10 +264,12 @@ export default function Play() {
   async function submitAnswer(slotIndex) {
     if (answerSubmitted || alreadyAnswered) return
 
-    const playerId = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')?.player_id
+    const stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
+    const playerId = stored?.player_id
+    const playerSecret = stored?.player_secret
     const question = questionsRef.current[currentQuestionIndex]
     const slots = currentQuestionSlotsRef.current
-    if (!playerId || !question || !slots) return
+    if (!playerId || !playerSecret || !question || !slots) return
 
     const slot = slots[slotIndex]
     if (!slot) return
@@ -276,7 +278,7 @@ export default function Play() {
     setSubmittedAnswerId(answerId)
 
     const { error } = await supabase
-      .rpc('submit_answer', { p_player_id: playerId, p_question_id: question.id, p_answer_id: answerId })
+      .rpc('submit_answer', { p_player_id: playerId, p_player_secret: playerSecret, p_question_id: question.id, p_answer_id: answerId })
 
     if (error) {
       // 23505 = PostgreSQL unique_violation: player already answered this question

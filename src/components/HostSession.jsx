@@ -34,6 +34,7 @@ export default function HostSession({ sessionId }) {
   const containerRef = useRef(null)
   const answersChannelRef = useRef(null)
   const questionOpenRef = useRef(true)
+  const hostSecretRef = useRef(localStorage.getItem(`host_${sessionId}`) ?? null)
 
   // Track fullscreen state changes
   useEffect(() => {
@@ -253,12 +254,6 @@ export default function HostSession({ sessionId }) {
   }, [questionOpen, currentQuestionIndex, sessionState, hostQuestions]) // eslint-disable-line react-hooks/exhaustive-deps -- closeQuestion is stable
 
   async function startGame() {
-    const { error: startError } = await supabase
-      .from('sessions')
-      .update({ state: 'active', current_question_index: 0 })
-      .eq('id', sessionId)
-    if (startError) { setError(startError.message); return }
-
     const { data: qs } = await supabase
       .from('questions')
       .select('id, question_text, time_limit, points, image_url, answers(id, answer_text, order_index, is_correct)')
@@ -269,19 +264,14 @@ export default function HostSession({ sessionId }) {
     if (!firstQuestionId) { setError('No questions found'); return }
 
     setLoadingSlots(true)
-    const { data: slots, error: slotsError } = await supabase.rpc('assign_answer_slots', {
+    const { data: slots, error: slotsError } = await supabase.rpc('start_game', {
       p_session_id: sessionId,
-      p_question_id: firstQuestionId,
+      p_host_secret: hostSecretRef.current,
+      p_first_question_id: firstQuestionId,
       p_shuffle: shuffleAnswers,
     })
     setLoadingSlots(false)
     if (slotsError) { setError(slotsError.message); return }
-
-    const { error: updateError } = await supabase
-      .from('sessions')
-      .update({ current_question_slots: slots })
-      .eq('id', sessionId)
-    if (updateError) { setError(updateError.message); return }
 
     setCurrentQuestionSlots(slots)
     setHostQuestions(sortedQs)
@@ -295,19 +285,15 @@ export default function HostSession({ sessionId }) {
     if (!nextQuestionId) return
 
     setLoadingSlots(true)
-    const { data: slots, error: slotsError } = await supabase.rpc('assign_answer_slots', {
+    const { data: slots, error: slotsError } = await supabase.rpc('open_next_question', {
       p_session_id: sessionId,
+      p_host_secret: hostSecretRef.current,
+      p_question_index: next,
       p_question_id: nextQuestionId,
       p_shuffle: shuffleAnswers,
     })
     setLoadingSlots(false)
     if (slotsError) { setError(slotsError.message); return }
-
-    const { error } = await supabase
-      .from('sessions')
-      .update({ current_question_index: next, question_open: true, current_question_slots: slots })
-      .eq('id', sessionId)
-    if (error) { setError(error.message); return }
 
     setCurrentQuestionSlots(slots)
     setAnswerCount(0)
@@ -315,31 +301,26 @@ export default function HostSession({ sessionId }) {
 
   async function closeQuestion() {
     if (!questionOpen) return
-    const { error } = await supabase
-      .from('sessions')
-      .update({ question_open: false })
-      .eq('id', sessionId)
+    const { error } = await supabase.rpc('close_question', {
+      p_session_id: sessionId,
+      p_host_secret: hostSecretRef.current,
+    })
     if (error) setError(error.message)
   }
 
   async function endGame() {
-    const { error } = await supabase
-      .from('sessions')
-      .update({ state: 'finished' })
-      .eq('id', sessionId)
+    const { error } = await supabase.rpc('end_game', {
+      p_session_id: sessionId,
+      p_host_secret: hostSecretRef.current,
+    })
     if (error) setError(error.message)
   }
 
   async function hostAgain() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    const code = [...Array(6)].map(() => chars[Math.floor(Math.random() * chars.length)]).join('')
-    const { data, error: err } = await supabase
-      .from('sessions')
-      .insert({ quiz_id: quizId, join_code: code, state: 'waiting' })
-      .select('id')
-      .single()
+    const { data, error: err } = await supabase.rpc('create_session', { p_quiz_id: quizId })
     if (err) { setError(err.message); return }
-    navigate(`/host?sessionId=${data.id}`)
+    localStorage.setItem(`host_${data.session_id}`, data.host_secret)
+    navigate(`/host?sessionId=${data.session_id}`)
   }
 
   if (loading) {
