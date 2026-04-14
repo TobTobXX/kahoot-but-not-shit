@@ -1,103 +1,155 @@
-# TODOS — Streaks
+# TODOS — Security Audit
 
-A streak is a run of consecutive correct answers. Starting from the 3rd correct answer in a row, the player earns flames (🔥). Each flame gives +10% bonus on top of the base (time-decayed) points for that question. One wrong answer resets the streak to 0. Missed answers (no submission before time runs out) do not reset the streak.
-
-Flames are shown next to points on every leaderboard view: the post-question feedback leaderboard, the game-over leaderboard for players, and the host's final results leaderboard.
+Full RLS and function-level security audit. All tables have RLS enabled but several policies are far too permissive. Work through the items below in priority order; each section is an independent unit of work that can be committed on its own.
 
 ---
 
-## 1. Schema migration: add `streak` to `players` and apply bonus in `submit_answer`
+## 1. [C1/C2] Hide `is_correct` and restrict answer/question visibility
 
-The streak counter lives on the `players` row. `submit_answer` already owns all scoring logic, so it is the right place to read the current streak, apply the flame bonus, and update the streak.
+Anyone with the anon key can `SELECT * FROM answers` and read `is_correct` for every question in every quiz. `questions_select_open` and `answers_select_open` both use `USING (true)` with no filter on session state, question index, or quiz privacy. The split-screen UI is bypassed entirely by a direct API call.
+
+Fix: restrict `answers` SELECT to only the columns a player legitimately needs (no `is_correct`), or replace the open read policy with one that limits visibility to currently-active session questions. The cleanest approach is a Postgres view or column-level security on `is_correct`.
 
 > **Relevant files:**
-> - `supabase/migrations/20260418000000_response_time.sql` — most recent `submit_answer` definition; new migration must have a later timestamp.
-> - `supabase/migrations/` — pick timestamp `20260419000000`.
+> - `supabase/migrations/20260413195738_rls_auth.sql` — defines `answers_select_open` and `questions_select_open`.
+> - New migration timestamp: `20260421000000`.
 >
 > **Watch out:**
-> - Column default is `0`, not null.
-> - The streak fetch must happen **before** the `INSERT INTO player_answers`, so the correct new streak value is applied. Read `players.streak` into a local variable at the top of the function.
-> - Flame count: `v_flame_count := greatest(0, (v_streak + 1) - 2)` — i.e. flames kick in only when the new streak ≥ 3. (+1 because the correct answer increments the streak first.)
-> - Bonus multiplier: `1.0 + v_flame_count * 0.10`. Apply it to `v_points_earned` (already time-decayed): `v_points_earned := round(v_points_earned * (1.0 + v_flame_count * 0.10))::integer`.
-> - Only increment streak on a correct answer; reset to 0 on a wrong answer. A missed answer (no RPC call) leaves the streak unchanged.
-> - The `UPDATE players` at the bottom of `submit_answer` must now also set `streak = v_new_streak`. Combine into a single UPDATE: `SET score = score + v_points_earned, streak = v_new_streak`.
-> - When the answer is wrong: `v_points_earned` is 0 and `v_new_streak` is 0, so the combined UPDATE sets `streak = 0` (no score change) — correct.
-> - Run `nix run nixpkgs#supabase-cli -- db push` after writing the migration.
+> - The host and quiz creator legitimately need `is_correct` (to show the correct answer after a question closes). Any policy must allow them through.
+> - `submit_answer` is a security-definer function and reads `answers` internally — it bypasses RLS regardless, so tightening client-facing policies does not break scoring.
+> - `assign_answer_slots` also reads `answers` as security definer — also unaffected.
+> - The frontend (`HostActiveQuestion`, `FeedbackView`, `HostResults`) reads answer correctness to highlight the right answer. These reads happen as the authenticated creator — check whether the existing `answers_select_open` being replaced needs a creator-scoped fallback.
+> - Questions for a private quiz are still readable by anyone who knows a `question_id` or `quiz_id` — the `questions_select_open` policy ignores `is_public`. Decide whether to also restrict questions to public quizzes or leave that for a later pass.
 
-- [x] Create `supabase/migrations/20260419000000_streaks.sql`.
-- [x] `ALTER TABLE players ADD COLUMN streak integer NOT NULL DEFAULT 0;`
-- [x] In the new migration, `CREATE OR REPLACE FUNCTION submit_answer(...)` with the full updated body:
-  - Declare `v_streak integer; v_new_streak integer; v_flame_count integer;` alongside existing locals.
-  - After determining `v_is_correct` (from the answers + questions join), fetch `SELECT streak INTO v_streak FROM players WHERE id = p_player_id;`.
-  - Compute `v_new_streak := CASE WHEN v_is_correct THEN v_streak + 1 ELSE 0 END;`.
-  - Compute `v_flame_count := GREATEST(0, v_new_streak - 2);` (0 for streaks < 3).
-  - Apply flame bonus after the existing `v_points_earned` computation: `IF v_is_correct THEN v_points_earned := ROUND(v_points_earned * (1.0 + v_flame_count * 0.10))::integer; END IF;`
-  - Change the final `UPDATE players` to `SET score = score + v_points_earned, streak = v_new_streak WHERE id = p_player_id;` (remove the `IF v_is_correct` guard — the UPDATE now runs unconditionally because wrong answers update streak to 0 with 0 points added).
-- [x] Run `nix run nixpkgs#supabase-cli -- db push` to apply.
-- [x] Commit the migration.
+- [x] Write `supabase/migrations/20260421000000_restrict_answers.sql`.
+- [x] `REVOKE SELECT (is_correct) ON answers FROM anon` (column-level; authenticated users retain access).
+- [x] Add `get_correct_answer_id(p_session_id, p_question_id)` security-definer RPC gated on `question_open = false`.
+- [x] Update `Play.jsx`: derive `isCorrect` from `points_earned > 0`; fetch correct slot via the new RPC instead of direct `is_correct` query.
+- [x] Run `nix run nixpkgs#supabase-cli -- db push`.
+- [x] Commit.
+
+**Note:** `answers_select_open` was left in place — the column-level REVOKE is sufficient and more targeted than dropping the row-level policy (which would break the host/creator reads). Authenticated hosts/creators continue to read `is_correct` through the existing policy.
 
 ---
 
-## 2. Include `streak` in all leaderboard fetches
+## 2. [C3] Lock down `sessions` — restrict UPDATE/DELETE to owner
 
-Every place that reads `players` for leaderboard display needs to select the `streak` column so it's available for rendering flames.
+`sessions_all_open` is `FOR ALL USING (true) WITH CHECK (true)`. Any anon user can advance questions, close the answer window, modify `question_opened_at` (corrupting time-based scoring), or delete active sessions.
 
-> **Relevant files:**
-> - `src/pages/Play.jsx` — two leaderboard fetches:
->   1. Inside `loadFeedback` (line ~83): `supabase.from('players').select('id, nickname, score')` → add `streak`.
->   2. Effect 3 (line ~258): same select → add `streak`.
-> - `src/components/HostResults.jsx` (line ~20): same select → add `streak`.
-> - `src/components/FeedbackView.jsx` — receives `leaderboard` prop; no fetch here, but will consume `streak` from the data.
->
-> **Watch out:** The `FeedbackView` leaderboard currently shows only a 3-row slice (player above/self/below). The streak/flame display needs to work on that slice as well as the full list (game-over, HostResults).
-
-- [x] In `Play.jsx` `loadFeedback`, change the players select to `'id, nickname, score, streak'`.
-- [x] In `Play.jsx` Effect 3 (finished leaderboard), change the same select to `'id, nickname, score, streak'`.
-- [x] In `HostResults.jsx`, change the leaderboard select to `'id, nickname, score, streak'`.
-
----
-
-## 3. Render flames in all leaderboard views
-
-A helper to compute flame count from a streak value, then flames rendered as 🔥 emoji characters wherever scores appear in leaderboard rows.
+Fix: allow anon SELECT and INSERT freely (join flow requires reading by `join_code`; host creates sessions). Restrict UPDATE and DELETE to the authenticated creator of the underlying quiz.
 
 > **Relevant files:**
-> - `src/components/FeedbackView.jsx` — leaderboard rows AND the result banner.
-> - `src/pages/Play.jsx` — game-over leaderboard block (lines 377–396).
-> - `src/components/HostResults.jsx` — final leaderboard section.
->
-> **Design spec:**
-> - `flameCount(streak)` = `Math.max(0, streak - 2)` — 0 flames for streak 0–2, 1 flame at streak 3, etc.
-> - Flames are rendered as `'🔥'.repeat(count)` immediately after the score in each leaderboard row. Keep it inline (no separate component needed).
-> - In `FeedbackView`'s result banner (the green "Correct!" or red "Wrong" div): when `isCorrect` is true and the player's streak (derived from the leaderboard) yields ≥ 1 flame, append the flames after "+X points". Example: "Correct! +850 points 🔥🔥".
-> - The player's streak for the banner is derived from `leaderboard.find(p => p.id === playerId)?.streak ?? 0`. This leaderboard is already loaded by `loadFeedback` before `FeedbackView` is rendered.
+> - `supabase/migrations/20260413195738_rls_auth.sql` — defines `sessions_all_open`.
+> - New migration timestamp: `20260421000001`.
 >
 > **Watch out:**
-> - `FeedbackView` already receives `leaderboard` and `playerId` as props — no new props needed for the banner; derive streak inline.
-> - The 3-row leaderboard slice in `FeedbackView` comes from the full `leaderboard` array (already has `streak`). Flames should appear in each of the three visible rows.
-> - In the game-over leaderboard in `Play.jsx`, every row should show flames — not just the current player's row.
-> - In `HostResults.jsx`, the leaderboard section currently shows `nickname` and `score`; add flames after the score.
+> - The host page calls `UPDATE sessions SET state/current_question_index/question_open/...` — the host is an authenticated user. The creator of the quiz is `quizzes.creator_id`. Sessions have a `quiz_id` FK, so the policy can join: `EXISTS (SELECT 1 FROM quizzes WHERE id = quiz_id AND creator_id = auth.uid())`.
+> - DELETE should follow the same creator-ownership check.
+> - INSERT can stay open (anon): anyone can start a session for a public quiz. Optionally restrict to authenticated users only — but that would break the current host flow if the host page ever creates sessions without auth. Check `HostLibrary.jsx` to confirm the session creation call.
+> - SELECT must stay open for players (they read sessions by `join_code`).
+> - The cleanup cron job (`session_cleanup_cron.sql`) runs as `postgres` superuser — RLS does not apply to it.
 
-- [x] In `FeedbackView.jsx`, derive `playerStreak` from `leaderboard.find(p => p.id === playerId)?.streak ?? 0` and `playerFlames = Math.max(0, playerStreak - 2)`.
-- [x] Update the "Correct!" banner in `FeedbackView` to append `{'🔥'.repeat(playerFlames)}` after `+${pointsEarned} points` when `playerFlames > 0`.
-- [x] In `FeedbackView`'s leaderboard rows, after the score `<span>`, add `{Math.max(0, p.streak - 2) > 0 && <span>{'🔥'.repeat(Math.max(0, p.streak - 2))}</span>}`.
-- [x] In `Play.jsx`'s game-over leaderboard (the `sessionState === 'finished'` block), add flames after each player's score in the same pattern.
-- [x] In `HostResults.jsx`'s leaderboard section, add flames after each player's score.
+- [ ] Write `supabase/migrations/20260421000001_sessions_rls.sql`.
+- [ ] Drop `sessions_all_open`.
+- [ ] Create `sessions_select_open` — `FOR SELECT USING (true)`.
+- [ ] Create `sessions_insert_auth` — `FOR INSERT WITH CHECK (auth.uid() IS NOT NULL)` (only authenticated users can start sessions).
+- [ ] Create `sessions_update_own` — `FOR UPDATE USING (EXISTS (SELECT 1 FROM quizzes WHERE id = quiz_id AND creator_id = auth.uid()))`.
+- [ ] Create `sessions_delete_own` — `FOR DELETE USING (EXISTS (SELECT 1 FROM quizzes WHERE id = quiz_id AND creator_id = auth.uid()))`.
+- [ ] Run `nix run nixpkgs#supabase-cli -- db push`.
+- [ ] Smoke-test: host can start, advance, and finish a session; player join flow still works.
+- [ ] Commit.
 
 ---
 
-## 4. Lint + build verification
+## 3. [C4/M3] Lock down `players` — restrict UPDATE to server-side RPCs only
+
+`players_all_open` is `FOR ALL USING (true) WITH CHECK (true)`. Any anon user knowing a player UUID (exposed via realtime) can `UPDATE players SET score = 999999` or reset another player's `streak`/`correct_count`.
+
+All legitimate score/streak/correct_count writes go through `submit_answer` (security definer), which bypasses RLS. Direct client UPDATE should be blocked entirely.
+
+> **Relevant files:**
+> - `supabase/migrations/20260413195738_rls_auth.sql` — defines `players_all_open`.
+> - `supabase/migrations/20260415000000_server_side_scoring.sql` — earlier narrower policies (`players_select`, `players_insert`) that now coexist with `players_all_open`.
+> - New migration timestamp: `20260421000002`.
+>
+> **Watch out:**
+> - Players join by `INSERT INTO players` directly from the client (`Join.jsx`) — INSERT must stay open for anon.
+> - SELECT must stay open (leaderboard, realtime subscriptions).
+> - UPDATE from the client should be **fully blocked**. All score/streak mutations happen inside `submit_answer` (security definer) which bypasses RLS.
+> - DELETE: players are currently never deleted by the client. Leave blocked.
+> - The earlier `players_select` and `players_insert` policies from `server_side_scoring.sql` are now redundant (superseded by `players_all_open`). Drop all three and replace with two clean policies.
+
+- [x] Write `supabase/migrations/20260421000002_players_rls.sql`.
+- [x] Drop `players_all_open`, `players_select`, `players_insert`.
+- [x] Create `players_select_open` — `FOR SELECT USING (true)`.
+- [x] Create `players_insert_open` — `FOR INSERT WITH CHECK (true)`.
+- [x] Run `nix run nixpkgs#supabase-cli -- db push`.
+- [ ] Smoke-test: player join works; score updates appear via realtime after answering.
+- [x] Commit.
+
+---
+
+## 4. [H1] Add authorization check to `assign_answer_slots()`
+
+`assign_answer_slots` is a security-definer function callable by any client. It accepts any `session_id` and `question_id` with no check that the caller owns the session. A player can call it to reshuffle slot assignments mid-question.
+
+Fix: verify the caller is the authenticated creator of the quiz linked to the session.
+
+> **Relevant files:**
+> - `supabase/migrations/20260417000000_split_screen.sql` — defines `assign_answer_slots`.
+> - New migration timestamp: `20260421000003`.
+>
+> **Watch out:**
+> - The function is security definer, so `auth.uid()` returns the caller's JWT UID inside the function body.
+> - Add a guard at the top: `SELECT quizzes.creator_id INTO v_creator FROM sessions JOIN quizzes ON quizzes.id = sessions.quiz_id WHERE sessions.id = p_session_id; IF v_creator IS DISTINCT FROM auth.uid() THEN RAISE EXCEPTION 'Not authorised'; END IF;`
+> - If `creator_id` is NULL (legacy seed data with no owner), the check will block the call. Decide: require auth always (safest), or allow NULL creator as a bypass for legacy sessions.
+
+- [ ] Write `supabase/migrations/20260421000003_assign_slots_authz.sql`.
+- [ ] `CREATE OR REPLACE FUNCTION assign_answer_slots(...)` with the creator ownership check added before any data mutation.
+- [ ] Run `nix run nixpkgs#supabase-cli -- db push`.
+- [ ] Smoke-test: host can open a question (slot assignment succeeds); a non-owner call is rejected.
+- [ ] Commit.
+
+---
+
+## 5. [M1] Guard `submit_answer()` against out-of-window submissions
+
+`submit_answer` validates slot membership but does not check:
+1. That `sessions.question_open = true` (the answer window is currently open).
+2. That `p_question_id` matches `sessions.current_question_index` (no submitting for past/future questions).
+
+A player can submit after the host has closed the window, or target any question in the quiz.
+
+> **Relevant files:**
+> - Most recent `submit_answer` definition is in `supabase/migrations/20260419000001_correct_count.sql`.
+> - New migration timestamp: `20260421000004`.
+>
+> **Watch out:**
+> - `sessions.current_question_index` is an integer index into the questions array ordered by `order_index`. To validate, fetch `questions.id` at position `current_question_index` for the session's quiz and compare to `p_question_id`.
+> - `question_open` check is simpler: just fetch `sessions.question_open` and raise if false.
+> - Both checks should go right after the player session lookup, before the slot-membership check.
+> - Both checks use `v_session_id` which is already fetched at the top of the function.
+
+- [x] Write `supabase/migrations/20260421000004_submit_answer_guards.sql`.
+- [x] `CREATE OR REPLACE FUNCTION submit_answer(...)` with two new guards:
+  - Fetch `question_open`, `current_question_index`, `quiz_id` from `sessions`; raise if `NOT question_open`.
+  - Fetch `questions.id` at `order_index = current_question_index`; raise if it doesn't match `p_question_id`.
+- [x] Run `nix run nixpkgs#supabase-cli -- db push`.
+- [ ] Smoke-test: answer accepted during open window; answer rejected after host closes question; answer rejected for a wrong question ID.
+- [x] Commit.
+
+---
+
+## 6. Lint + build verification
 
 > **Run after all sections above are complete.**
 
-- [x] `nix shell nixpkgs#nodejs -c npm run lint` — fix any new lint errors.
-- [x] `nix shell nixpkgs#nodejs -c npm run build` — verify production build succeeds.
-- [ ] Manual smoke test:
-  - Start a session; answer Q1 correctly → no flames on feedback leaderboard.
-  - Answer Q2 correctly → still no flames.
-  - Answer Q3 correctly → 1 flame (🔥) appears next to your score; feedback banner shows "Correct! +X points 🔥".
-  - Answer Q4 correctly → 2 flames (🔥🔥) appear; points bonus is ~+20% above base.
-  - Answer Q5 wrong → streak resets; no flames on next feedback.
-  - Skip a question (don't answer before time runs out) → streak is preserved on the next correct answer.
-  - Host's HostResults leaderboard shows flames beside scores of players who ended the game on a streak.
-  - Game-over screen for players shows flames beside scores.
+- [ ] `nix shell nixpkgs#nodejs -c npm run lint` — fix any new lint errors.
+- [ ] `nix shell nixpkgs#nodejs -c npm run build` — verify production build succeeds.
+- [ ] Full manual smoke test:
+  - Create a quiz, start a session, join as a player.
+  - Confirm the answer window: player can submit during open window, gets rejected after host closes it.
+  - Confirm score integrity: direct `UPDATE players SET score = 99999` via REST is rejected with 403.
+  - Confirm session integrity: anon `UPDATE sessions SET state = 'finished'` is rejected with 403.
+  - Confirm `is_correct` is not readable by an unauthenticated client.
+  - Confirm `assign_answer_slots` called from an anon client (not the quiz creator) is rejected.
