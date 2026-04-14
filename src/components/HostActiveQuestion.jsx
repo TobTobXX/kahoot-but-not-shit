@@ -73,10 +73,10 @@ export default function HostActiveQuestion({
         )}
       </div>
 
-      {/* Bottom bar: Join code left, controls center, question count right */}
-      <div className="flex items-center justify-between px-6 py-7 bg-slate-800/50">
+      {/* Bottom bar: Join code left, controls center, question count + exit right */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-6 py-7 bg-slate-800/50 gap-4">
         {/* Join code - lower left */}
-        <div className="w-48">
+        <div>
           {joinCode && (
             <div className="text-slate-400 text-2xl">
               <span className="mr-2">Code:</span>
@@ -85,8 +85,8 @@ export default function HostActiveQuestion({
           )}
         </div>
 
-        {/* Navigation controls */}
-        <div className="flex-1 flex justify-center gap-4">
+        {/* Navigation controls - center column, auto width */}
+        <div className="flex justify-center gap-4">
           <button
             onClick={onClose}
             className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-5 px-16 rounded-lg transition-colors text-2xl"
@@ -102,8 +102,8 @@ export default function HostActiveQuestion({
           </button>
         </div>
 
-        {/* Question count + fullscreen + Exit */}
-        <div className="flex items-center gap-4">
+        {/* Question count + fullscreen + Exit - right column */}
+        <div className="flex items-center justify-end gap-4">
           <div className="text-slate-400 text-2xl whitespace-nowrap">
             <span className="mr-2">Question:</span>
             <span className="text-white font-bold text-5xl">{currentQuestionIndex + 1}</span>
