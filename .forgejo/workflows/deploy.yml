@@ -1,0 +1,28 @@
+name: Deploy to Codeberg Pages
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  deploy:
+    runs-on: docker
+    container: node:lts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - uses: https://codeberg.org/git-pages/action@v2
+        with:
+          site: "https://tobtobxx.codeberg.page/kahoot-but-not-shit/"
+          token: ${{ forge.token }}
+          source: dist/
