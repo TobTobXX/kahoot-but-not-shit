@@ -5,6 +5,7 @@ import Host from './pages/Host'
 import Play from './pages/Play'
 import Create from './pages/Create'
 import Login from './pages/Login'
+import Profile from './pages/Profile'
 import Join from './pages/Join'
 
 function ProtectedRoute({ children }) {
@@ -35,6 +36,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Create />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

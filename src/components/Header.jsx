@@ -40,6 +40,12 @@ export default function Header() {
             Create
           </button>
           <span className="text-sm text-gray-400">{user.email}</span>
+          <Link
+            to="/profile"
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Profile
+          </Link>
           <button
             onClick={signOut}
             className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
