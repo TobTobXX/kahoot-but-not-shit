@@ -1,7 +1,6 @@
-import encode from '@jsquash/jxl/encode'
-
 const MAX_WIDTH = 1500
 const MAX_HEIGHT = 1000
+const JPEG_QUALITY = 0.85
 
 /**
  * Scales `width` × `height` down so neither dimension exceeds its limit,
@@ -36,10 +35,10 @@ function loadImage(file) {
 
 /**
  * Given an image File, resizes it to fit within MAX_WIDTH × MAX_HEIGHT,
- * encodes it as JPEG-XL, uploads it to the 'images' Supabase bucket, and
+ * encodes it as JPEG, uploads it to the 'images' Supabase bucket, and
  * returns the public URL.
  *
- * Path: {userId}/{questionId}.jxl — uploading again overwrites the previous
+ * Path: {userId}/{questionId}.jpg — uploading again overwrites the previous
  * version (upsert: true).
  *
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
@@ -56,17 +55,15 @@ export async function processAndUploadImage(supabase, file, userId, questionId) 
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
-  const ctx = canvas.getContext('2d')
-  ctx.drawImage(img, 0, 0, w, h)
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h)
 
-  const imageData = ctx.getImageData(0, 0, w, h)
-  const jxlBuffer = await encode(imageData)
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY))
 
-  const path = `${userId}/${questionId}.jxl`
+  const path = `${userId}/${questionId}.jpg`
   const { error } = await supabase.storage
     .from('images')
-    .upload(path, jxlBuffer, {
-      contentType: 'image/jxl',
+    .upload(path, blob, {
+      contentType: 'image/jpeg',
       upsert: true,
     })
 
