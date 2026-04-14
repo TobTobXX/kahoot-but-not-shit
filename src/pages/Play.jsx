@@ -256,7 +256,7 @@ export default function Play() {
     if (sessionState !== 'finished' || !sessionId) return
     supabase
       .from('players')
-      .select('id, nickname, score, streak')
+      .select('id, nickname, score, correct_count')
       .eq('session_id', sessionId)
       .order('score', { ascending: false })
       .order('nickname')
@@ -383,7 +383,8 @@ export default function Play() {
                   >
                     <span className="text-slate-400 font-mono w-6 text-right">{i + 1}</span>
                     <span className="flex-1 font-semibold">{p.nickname}</span>
-                    <span className="text-slate-300">{p.score}{(p.streak ?? 0) >= 3 && <> 🔥<span className="text-orange-400 font-bold">{p.streak}</span></>}</span>
+                    <span className="text-slate-300">{p.score}</span>
+                    <span className="text-emerald-400 text-sm">✓{p.correct_count ?? 0}</span>
                   </div>
                 ))}
               </div>

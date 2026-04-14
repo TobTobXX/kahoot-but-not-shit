@@ -18,7 +18,7 @@ export default function HostResults({ sessionId, quizId, onHostAgain }) {
       // 1. Final leaderboard
       const { data: lb } = await supabase
         .from('players')
-        .select('id, nickname, score, streak')
+        .select('id, nickname, score, correct_count')
         .eq('session_id', sessionId)
         .order('score', { ascending: false })
         .order('nickname')
@@ -112,7 +112,8 @@ export default function HostResults({ sessionId, quizId, onHostAgain }) {
                   >
                     <span className={`font-bold w-6 text-right tabular-nums ${medal}`}>{i + 1}</span>
                     <span className="flex-1 font-semibold truncate">{player.nickname}</span>
-                    <span className="text-slate-300 tabular-nums">{player.score}{(player.streak ?? 0) >= 3 && <> 🔥<span className="text-orange-400 font-bold">{player.streak}</span></>}</span>
+                    <span className="text-slate-300 tabular-nums">{player.score}</span>
+                    <span className="text-emerald-400 text-sm tabular-nums">✓{player.correct_count ?? 0}</span>
                   </div>
                 )
               })}
