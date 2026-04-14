@@ -330,7 +330,7 @@ export default function HostSession({ sessionId }) {
   }
 
   async function hostAgain() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     const code = [...Array(6)].map(() => chars[Math.floor(Math.random() * chars.length)]).join('')
     const { data, error: err } = await supabase
       .from('sessions')
