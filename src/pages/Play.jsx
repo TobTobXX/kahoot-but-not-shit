@@ -384,7 +384,7 @@ export default function Play() {
                     <span className="text-slate-400 font-mono w-6 text-right">{i + 1}</span>
                     <span className="flex-1 font-semibold">{p.nickname}</span>
                     <span className="text-slate-300">{p.score}</span>
-                    <span className="text-emerald-400 text-sm">✓{p.correct_count ?? 0}</span>
+                    <span className="text-emerald-400 text-sm">✓{p.correct_count ?? 0}/{questions.length}</span>
                   </div>
                 ))}
               </div>
