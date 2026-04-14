@@ -13,19 +13,14 @@ Core quiz platform fully functional with real-time sync, server-side scoring, sp
 - Split-screen security: players receive only slot assignments (color/icon), never question/answer text (v0.8)
 - Supabase Auth for quiz creators, user-scoped RLS policies, personal quiz library (v0.9)
 - Consistent navigation across the app (v0.10)
-- Streaks: consecutive-correct bonus with flame display, correct count on game-over leaderboard (v0.12)
 - Post-session results screen: final leaderboard, per-question breakdown, host controls, full end-to-end polish (v0.11)
+- Streaks: consecutive-correct bonus with flame display, correct count on game-over leaderboard (v0.12)
 
 ## Technical debt
 
 Items deferred to a later version. The version marker indicates the earliest point where it makes sense to address each one.
 
-- [ ] **v0.9** — `player_id` in `localStorage` is unauthenticated; any client can forge a player identity. Left unresolved — players are intentionally unauthenticated by design.
-- [ ] **v0.9** — `session_question_answers` is populated eagerly when a session starts — a quiz creator who edits answers mid-session may cause inconsistencies. Consider regenerating assignments when a question is reopened.
 - [ ] **future** — Full security audit: clients can query questions/answers for future questions before they are shown (no row-level restriction by session state), and other unenumerated cheat vectors introduced by the all-anon-read RLS posture.
-- [x] **future** — Join code collision is unhandled; if a duplicate code is generated the insert fails with a constraint error instead of retrying with a new code.
-- [x] **future** — `player_${code}` localStorage entries for finished sessions are only cleared when Play.jsx receives the realtime `finished` event. If the user closes the tab before that fires, the entry lingers indefinitely. Fixed: `joined_at` timestamp stored in the entry; Join.jsx discards entries older than 13 hours on read.
-- [x] **future** — Quiz save (insert quiz → insert questions → insert answers) runs as three separate statements. If the answers insert fails, orphaned question rows are left. Fix with an atomic Postgres RPC that does all three inserts in one transaction.
 
 ## Future ideas:
 
