@@ -13,6 +13,7 @@ Core quiz platform fully functional with real-time sync, server-side scoring, sp
 - Split-screen security: players receive only slot assignments (color/icon), never question/answer text (v0.8)
 - Supabase Auth for quiz creators, user-scoped RLS policies, personal quiz library (v0.9)
 - Consistent navigation across the app (v0.10)
+- Streaks: consecutive-correct bonus with flame display, correct count on game-over leaderboard (v0.12)
 
 ## v0.11 — Results, polish, and full flow
 
@@ -35,7 +36,6 @@ Items deferred to a later version. The version marker indicates the earliest poi
 - [ ] **future** — Stale `waiting` sessions accumulate in the DB with no expiry or cleanup mechanism.
 - [ ] **future** — `player_${code}` localStorage entries for finished sessions are only cleared when Play.jsx receives the realtime `finished` event. If the user closes the tab before that fires, the entry lingers indefinitely. Consider a TTL-based cleanup on next read (e.g. check session state on mount in Join.jsx and clear stale entries).
 - [ ] **future** — Quiz save (insert quiz → insert questions → insert answers) runs as three separate statements. If the answers insert fails, orphaned question rows are left. Fix with an atomic Postgres RPC that does all three inserts in one transaction.
-- [ ] **future** — Host again doesn't work.
 
 ## Future ideas:
 
