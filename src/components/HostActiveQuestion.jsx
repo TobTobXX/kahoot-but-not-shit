@@ -15,9 +15,13 @@ export default function HostActiveQuestion({
   playerCount,
   loadingSlots,
   isFullscreen,
+  isPaused,
   onToggleFullscreen,
   onClose,
   onNext,
+  onBack,
+  onReplay,
+  onPause,
   onEnd,
 }) {
   return (
@@ -89,22 +93,43 @@ export default function HostActiveQuestion({
         {/* Navigation controls */}
         <div className="flex-1 flex justify-center gap-4">
           <button
+            onClick={onBack}
+            disabled={currentQuestionIndex === 0 || loadingSlots}
+            className="bg-slate-600 hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-5 px-10 rounded-lg transition-colors text-2xl"
+          >
+            ←
+          </button>
+          <button
             onClick={onClose}
             disabled={!questionOpen}
-            className="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 px-28 rounded-lg transition-colors text-2xl"
+            className="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 px-16 rounded-lg transition-colors text-2xl"
           >
             Finish
           </button>
           <button
+            onClick={onPause}
+            disabled={!questionOpen}
+            className="bg-slate-600 hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-5 px-10 rounded-lg transition-colors text-2xl"
+          >
+            {isPaused ? '▶' : '⏸'}
+          </button>
+          <button
+            onClick={onReplay}
+            disabled={questionOpen || loadingSlots}
+            className="bg-slate-600 hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-5 px-10 rounded-lg transition-colors text-2xl"
+          >
+            ↺
+          </button>
+          <button
             onClick={onNext}
             disabled={currentQuestionIndex >= totalQuestions - 1 || loadingSlots}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 px-28 rounded-lg transition-colors text-2xl"
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-5 px-16 rounded-lg transition-colors text-2xl"
           >
-            {loadingSlots ? '…' : 'Next'}
+            {loadingSlots ? '…' : 'Next →'}
           </button>
           <button
             onClick={onEnd}
-            className="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-5 px-28 rounded-lg transition-colors text-2xl"
+            className="bg-slate-600 hover:bg-slate-500 text-white font-semibold py-5 px-10 rounded-lg transition-colors text-2xl"
           >
             End
           </button>

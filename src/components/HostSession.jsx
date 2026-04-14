@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import HostLobby from './HostLobby'
 import HostActiveQuestion from './HostActiveQuestion'
+import HostResults from './HostResults'
 import { byOrderIndex } from '../lib/utils'
 
 // Shown at /host/:sessionId. Manages the live game: waiting room, active
@@ -25,8 +26,10 @@ export default function HostSession({ sessionId }) {
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const containerRef = useRef(null)
   const answersChannelRef = useRef(null)
+  const questionOpenRef = useRef(true)
 
   // Track fullscreen state changes
   useEffect(() => {
@@ -178,23 +181,35 @@ export default function HostSession({ sessionId }) {
     }
   }, [sessionId, quizId, currentQuestionIndex, sessionState]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep questionOpenRef in sync for use inside the timer callback
+  useEffect(() => { questionOpenRef.current = questionOpen }, [questionOpen])
+
+  // Reset pause whenever the question changes or closes
+  useEffect(() => { setIsPaused(false) }, [questionOpen, currentQuestionIndex])
+
   // Countdown timer — resets when a new question opens
   useEffect(() => {
     if (!questionOpen || sessionState !== 'active') {
-      setTimeRemaining(null) // eslint-disable-line react-hooks/set-state-in-effect -- intentional reset when question closes
+      setTimeRemaining(null)
       return
     }
     const question = hostQuestions[currentQuestionIndex]
     if (!question) return
     setTimeRemaining(question.time_limit ?? 30)
     const interval = setInterval(() => {
+      if (isPaused) return
       setTimeRemaining((t) => {
-        if (t === null || t <= 0) { clearInterval(interval); return 0 }
+        if (t === null || t <= 0) {
+          clearInterval(interval)
+          // eslint-disable-next-line react-hooks/immutability
+          if (questionOpenRef.current) closeQuestion()
+          return 0
+        }
         return t - 1
       })
     }, 1000)
     return () => clearInterval(interval)
-  }, [questionOpen, currentQuestionIndex, sessionState, hostQuestions])
+  }, [questionOpen, currentQuestionIndex, sessionState, hostQuestions, isPaused]) // eslint-disable-line react-hooks/exhaustive-deps -- closeQuestion is stable
 
   async function startGame() {
     const { error: startError } = await supabase
@@ -257,6 +272,56 @@ export default function HostSession({ sessionId }) {
     setAnswerCount(0)
   }
 
+  async function previousQuestion() {
+    const prev = currentQuestionIndex - 1
+    if (prev < 0) return
+    const prevQuestionId = hostQuestions[prev]?.id
+    if (!prevQuestionId) return
+
+    setLoadingSlots(true)
+    const { data: slots, error: slotsError } = await supabase.rpc('assign_answer_slots', {
+      p_session_id: sessionId,
+      p_question_id: prevQuestionId,
+      p_shuffle: shuffleAnswers,
+    })
+    setLoadingSlots(false)
+    if (slotsError) { setError(slotsError.message); return }
+
+    const { error } = await supabase
+      .from('sessions')
+      .update({ current_question_index: prev, question_open: true, current_question_slots: slots })
+      .eq('id', sessionId)
+    if (error) { setError(error.message); return }
+
+    setCurrentQuestionSlots(slots)
+    setAnswerCount(0)
+    setIsPaused(false)
+  }
+
+  async function replayQuestion() {
+    const questionId = hostQuestions[currentQuestionIndex]?.id
+    if (!questionId) return
+
+    setLoadingSlots(true)
+    const { data: slots, error: slotsError } = await supabase.rpc('assign_answer_slots', {
+      p_session_id: sessionId,
+      p_question_id: questionId,
+      p_shuffle: shuffleAnswers,
+    })
+    setLoadingSlots(false)
+    if (slotsError) { setError(slotsError.message); return }
+
+    const { error } = await supabase
+      .from('sessions')
+      .update({ question_open: true, current_question_slots: slots })
+      .eq('id', sessionId)
+    if (error) { setError(error.message); return }
+
+    setCurrentQuestionSlots(slots)
+    setAnswerCount(0)
+    setIsPaused(false)
+  }
+
   async function closeQuestion() {
     if (!questionOpen) return
     const { error } = await supabase
@@ -291,6 +356,17 @@ export default function HostSession({ sessionId }) {
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-slate-400">Loading…</p>
       </div>
+    )
+  }
+
+  // Results screen takes over the full viewport
+  if (sessionState === 'finished') {
+    return (
+      <HostResults
+        sessionId={sessionId}
+        quizId={quizId}
+        onHostAgain={hostAgain}
+      />
     )
   }
 
@@ -335,31 +411,15 @@ export default function HostSession({ sessionId }) {
             playerCount={players.length}
             loadingSlots={loadingSlots}
             isFullscreen={isFullscreen}
+            isPaused={isPaused}
             onToggleFullscreen={toggleFullscreen}
             onClose={closeQuestion}
             onNext={nextQuestion}
+            onBack={previousQuestion}
+            onReplay={replayQuestion}
+            onPause={() => setIsPaused((p) => !p)}
             onEnd={endGame}
           />
-        )}
-
-        {sessionState === 'finished' && (
-          <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-xl p-8 flex flex-col items-center gap-6">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <p className="text-2xl font-bold">Game over</p>
-              <button
-                onClick={() => navigate('/host')}
-                className="text-slate-300 hover:text-white text-sm transition-colors"
-              >
-                Back to library
-              </button>
-              <button
-                onClick={hostAgain}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-lg transition-colors"
-              >
-                Host again
-              </button>
-            </div>
-          </div>
         )}
       </div>
     </div>

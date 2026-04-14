@@ -24,6 +24,7 @@ export default function Play() {
   const [isCorrect, setIsCorrect] = useState(null)
   const [pointsEarned, setPointsEarned] = useState(0)
   const [leaderboard, setLeaderboard] = useState([])
+  const [storedPlayerId, setStoredPlayerId] = useState(null)
   const [error, setError] = useState(null)
 
   // One-way latch: flips to true the first time the session goes active so questions
@@ -113,6 +114,7 @@ export default function Play() {
         navigate(`/join?code=${code}`, { replace: true })
         return
       }
+      setStoredPlayerId(playerId)
 
       const { data: player, error: playerError } = await supabase
         .from('players')
@@ -249,6 +251,18 @@ export default function Play() {
     }
   }, [sessionId, code])
 
+  // Effect 3: fetch final leaderboard when the session finishes
+  useEffect(() => {
+    if (sessionState !== 'finished' || !sessionId) return
+    supabase
+      .from('players')
+      .select('id, nickname, score')
+      .eq('session_id', sessionId)
+      .order('score', { ascending: false })
+      .order('nickname')
+      .then(({ data }) => { if (data) setLeaderboard(data) })
+  }, [sessionState, sessionId])
+
   async function submitAnswer(slotIndex) {
     if (answerSubmitted || alreadyAnswered) return
 
@@ -352,12 +366,28 @@ export default function Play() {
 
         {/* Game over */}
         {sessionState === 'finished' && (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-4xl font-bold">Game over</p>
-            <p className="text-slate-300 text-lg">Thanks for playing, <strong>{nickname}</strong>!</p>
+          <div className="w-full max-w-sm flex flex-col gap-4">
+            <div className="text-center">
+              <p className="text-4xl font-bold">Game over</p>
+              <p className="text-slate-300 mt-1">Thanks for playing, <strong>{nickname}</strong>!</p>
+            </div>
+            {leaderboard.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {leaderboard.map((p, i) => (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg ${p.id === storedPlayerId ? 'bg-indigo-700' : 'bg-slate-800'}`}
+                  >
+                    <span className="text-slate-400 font-mono w-6 text-right">{i + 1}</span>
+                    <span className="flex-1 font-semibold">{p.nickname}</span>
+                    <span className="text-slate-300">{p.score}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               onClick={() => navigate('/')}
-              className="mt-2 text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+              className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors text-center"
             >
               Back to home
             </button>

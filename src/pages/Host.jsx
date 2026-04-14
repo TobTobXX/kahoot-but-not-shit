@@ -5,5 +5,5 @@ import HostSession from '../components/HostSession'
 export default function Host() {
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('sessionId')
-  return sessionId ? <HostSession sessionId={sessionId} /> : <HostLibrary />
+  return sessionId ? <HostSession key={sessionId} sessionId={sessionId} /> : <HostLibrary />
 }
