@@ -14,16 +14,7 @@ Core quiz platform fully functional with real-time sync, server-side scoring, sp
 - Supabase Auth for quiz creators, user-scoped RLS policies, personal quiz library (v0.9)
 - Consistent navigation across the app (v0.10)
 - Streaks: consecutive-correct bonus with flame display, correct count on game-over leaderboard (v0.12)
-
-## v0.11 — Results, polish, and full flow
-
-Post-session results screen for the host: final leaderboard, per-question response distribution, average response time, and % correct. Host controls are complete: pause, skip, replay question. UI is polished end-to-end. The full flow works without any hardcoded values or missing pieces.
-
-- [x] Post-session results screen with final leaderboard
-- [x] Per-question breakdown: response distribution, average time, % correct
-- [x] Host controls: pause, skip forward/back, replay question
-- [x] Full end-to-end flow works without hardcoded values
-- [x] UI is consistent and polished across all screens
+- Post-session results screen: final leaderboard, per-question breakdown, host controls, full end-to-end polish (v0.11)
 
 ## Technical debt
 
