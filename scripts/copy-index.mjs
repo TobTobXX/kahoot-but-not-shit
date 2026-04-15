@@ -8,7 +8,7 @@ const rootHtml = readFileSync('dist/index.html', 'utf-8')
 // One directory deeper they need to be ../assets/, ../favicon.svg, etc.
 const subHtml = rootHtml.replaceAll('"\./', '"../')
 
-const pages = ['host', 'join', 'play', 'create', 'edit', 'library', 'login']
+const pages = ['host', 'join', 'play', 'edit', 'library', 'login']
 for (const page of pages) {
   const dir = join('dist', page)
   mkdirSync(dir, { recursive: true })

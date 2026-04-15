@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Home from './pages/Home'
 import Host from './pages/Host'
 import Play from './pages/Play'
-import Create from './pages/Create'
+import Edit from './pages/Edit'
 import Login from './pages/Login'
 import Profile from './pages/Profile'
 import Join from './pages/Join'
@@ -27,7 +27,7 @@ function AppRoutes() {
         path="/edit"
         element={
           <ProtectedRoute>
-            <Create />
+            <Edit />
           </ProtectedRoute>
         }
       />

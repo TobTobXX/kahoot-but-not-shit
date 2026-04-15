@@ -23,7 +23,7 @@ function blankQuestion() {
   }
 }
 
-export default function Create() {
+export default function Edit() {
   const [searchParams] = useSearchParams()
   const urlQuizId = searchParams.get('quizId')
   const { user } = useAuth()

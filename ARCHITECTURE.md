@@ -127,15 +127,16 @@ All routes are static (no dynamic path segments). Session/quiz context is passed
 ```
 /                          Home — join a game (code + nickname) or navigate to host
 /login                     Login — email/password auth for quiz creators
-/host                      HostLibrary — browse quizzes, pick one to host
+/profile                  Profile — view/edit your profile  [protected]
+/host                     HostLibrary — browse quizzes, pick one to host
 /host?sessionId=<uuid>     HostSession — live game management
 /join?code=<join_code>     Join — join by URL; auto-rejoins if a stored entry exists
 /play?code=<join_code>     Play — player game interface (waiting → answering → feedback)
-/create                    Create — new quiz editor  [protected]
-/create?quizId=<uuid>      Create — edit existing quiz  [protected]
+/edit                     Create — new quiz editor  [protected]
+/edit?quizId=<uuid>        Create — edit existing quiz  [protected]
 ```
 
-`/library` redirects to `/host`. `/edit` is an alias for `/create` and also accepts `?quizId=<uuid>`.
+`/library` redirects to `/host`. `/create` is not a route — quiz editing lives at `/edit`.
 
 ### Static hosting and routing
 
@@ -145,14 +146,14 @@ This produces a `dist/` tree where every route is a real directory with its own 
 
 ### Route entry points
 
-Each route directory at the project root contains an `index.html` that is identical to the root `index.html` and serves as the Vite entry point for that route: `login/`, `host/`, `join/`, `play/`, `create/`, `edit/`, `library/`.
+Each route directory at the project root contains an `index.html` that is identical to the root `index.html` and serves as the Vite entry point for that route: `login/`, `host/`, `join/`, `play/`, `edit/`, `library/`.
 
 ### Frontend source (`src/`)
 
 | File | Purpose |
 |---|---|
 | `src/main.jsx` | React entry point; mounts app with `BrowserRouter` |
-| `src/App.jsx` | Route definitions: `/`, `/login`, `/host`, `/join`, `/play`, `/create`, `/edit`; context passed via query params; `/library` redirects to `/host` |
+| `src/App.jsx` | Route definitions: `/`, `/login`, `/host`, `/join`, `/play`, `/edit`, `/profile`; context passed via query params; `/library` redirects to `/host` |
 | `src/index.css` | Tailwind CSS import + dark base styles |
 | `src/lib/supabase.js` | Supabase client singleton |
 | `src/lib/slots.js` | Slot shuffle/color/icon utilities for split-screen answer layout |
@@ -160,7 +161,7 @@ Each route directory at the project root contains an `index.html` that is identi
 | `src/lib/imageUpload.js` | Resizes an image file to ≤1500×1000 px, encodes as JPEG, and uploads to the `images` storage bucket; returns the public URL |
 | `src/lib/quizExport.js` | `exportQuiz` — serialises a quiz to JSON with base64-embedded images; `importQuiz` — parses JSON, uploads images, and calls `save_quiz` RPC |
 | `src/context/AuthContext.jsx` | React context providing `user`, `loading`, and `signOut` from Supabase Auth |
-| `src/pages/` | One file per route: `Home`, `Login`, `Host` (thin router → HostLibrary or HostSession), `Join`, `Create`, `Play` |
+| `src/pages/` | One file per route: `Home`, `Login`, `Host` (thin router → HostLibrary or HostSession), `Join`, `Edit`, `Play` |
 | `src/components/Header.jsx` | Shared header bar — logo, library link, auth controls (login/logout/create) |
 | `src/components/HostSession.jsx` | Host session shell — orchestrates HostLobby, HostActiveQuestion, HostQuestionReview, and HostResults |
 | `src/components/HostLibrary.jsx` | Quiz picker — browse own and public quizzes, start a session, import/export |
@@ -169,7 +170,7 @@ Each route directory at the project root contains an `index.html` that is identi
 | `src/components/HostQuestionReview.jsx` | Between-question review — correct answer highlighted, per-slot response counts, optional top-5 leaderboard |
 | `src/components/HostResults.jsx` | Post-session results screen — final leaderboard and per-question breakdown with response distribution and avg time |
 | `src/components/FeedbackView.jsx` | Post-answer feedback screen shown to players |
-| `src/components/QuestionEditor.jsx` | Question + answer editor sub-component used in Create |
+| `src/components/QuestionEditor.jsx` | Question + answer editor sub-component used in Edit |
 | `src/components/SlotIcon.jsx` | Renders the colored shape icon for an answer slot |
 
 ### Database migrations (`supabase/migrations/`)
