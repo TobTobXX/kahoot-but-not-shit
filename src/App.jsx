@@ -48,6 +48,9 @@ export default function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      <div className="fixed bottom-2 right-3 text-xs text-gray-400 select-none pointer-events-none">
+        {__APP_VERSION__}
+      </div>
     </AuthProvider>
   )
 }
