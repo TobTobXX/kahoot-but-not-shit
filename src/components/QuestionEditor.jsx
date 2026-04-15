@@ -82,6 +82,7 @@ export default function QuestionEditor({ index, question, onChange, onDelete, ca
           <label className="text-xs text-gray-500">Image</label>
           {isPro ? (
             <input
+              key="file"
               type="file"
               accept="image/*"
               onChange={(e) => {
@@ -93,6 +94,7 @@ export default function QuestionEditor({ index, question, onChange, onDelete, ca
             />
           ) : (
             <input
+              key="text"
               type="text"
               value={question.image_url || ''}
               onChange={(e) => update('image_url', e.target.value)}
