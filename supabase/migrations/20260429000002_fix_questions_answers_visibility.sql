@@ -1,16 +1,10 @@
--- Restrict questions and answers to accessible quizzes only.
--- Previously both used USING (true), leaking content of private quizzes to
--- anyone who knew the quiz_id.
---
--- A quiz is accessible if:
---   (a) it is public, OR
---   (b) the caller is its creator, OR
---   (c) an active session exists for it — players need to read questions/answers
---       during gameplay. 'waiting' is excluded: no client reads questions then,
---       and an abandoned waiting session would otherwise expose private content
---       until the hourly cron cleanup.
+-- Tighten the session guard added in 20260429000000:
+-- use state = 'active' instead of state != 'finished'.
+-- 'waiting' sessions are excluded because no client reads questions during
+-- the lobby phase, and an abandoned waiting session would otherwise keep
+-- a private quiz's content exposed until the hourly cron cleanup.
 
-DROP POLICY IF EXISTS questions_select_open ON questions;
+DROP POLICY IF EXISTS questions_select_visible ON questions;
 CREATE POLICY questions_select_visible ON questions FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.quizzes
@@ -25,7 +19,7 @@ CREATE POLICY questions_select_visible ON questions FOR SELECT USING (
   )
 );
 
-DROP POLICY IF EXISTS answers_select_open ON answers;
+DROP POLICY IF EXISTS answers_select_visible ON answers;
 CREATE POLICY answers_select_visible ON answers FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.questions q
