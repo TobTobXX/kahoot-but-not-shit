@@ -105,12 +105,22 @@ export default function QuestionEditor({ index, question, onChange, onDelete, ca
         </div>
       </div>
 
-      {isPro && question.image_url && (
-        <img
-          src={question.image_url}
-          alt=""
-          className="w-full max-h-48 object-contain rounded-lg border border-gray-200"
-        />
+{isPro && question.image_url && (
+        <div className={`relative w-full`}>
+          <img
+            src={question.image_url}
+            alt={``}
+            className={`w-full max-h-48 object-contain rounded-lg border border-gray-200`}
+          />
+          <button
+            type={`button`}
+            onClick={() => update('image_url', '')}
+            className={`absolute top-2 right-2 bg-white/90 hover:bg-white text-red-500 hover:text-red-600 rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shadow transition-colors`}
+            title={`Remove image`}
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       <div className="flex flex-col gap-2">
