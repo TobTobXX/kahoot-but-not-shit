@@ -156,6 +156,11 @@ When AI tools contribute to a commit, include an `Assisted-by: AGENT_NAME:MODEL_
 - **Filter column naming** — The realtime filter key uses Postgres column names with underscores, not camelCase JS keys. Use `join_code=eq.${code}`, not `joinCode=eq.${code}`.
 - **Enabling realtime** — `supabase db push` only handles SQL migrations. Enabling realtime on a table requires either the Supabase dashboard or a raw SQL migration (`ALTER PUBLICATION supabase_realtime ADD TABLE <name>`). The CLI has no `realtime enable` command.
 
+### Supabase CLI versioning
+
+- **`schedule` in `config.toml` is not supported** — even in v2.90.0, the `[functions.<name>]` block does not accept a `schedule` key; the CLI rejects it with "invalid keys". To schedule an Edge Function, use a pg_cron migration with `net.http_post` instead (see `supabase/migrations/20260415120000_sweep_orphan_images_cron.sql`).
+- **Use nixpkgs-unstable for a newer CLI** — `nix run nixpkgs#supabase-cli` gives v2.60.0. Use `nix run github:nixos/nixpkgs/nixpkgs-unstable#supabase-cli` to get v2.90.0 (the current latest). Apply the same pattern for other tools that need a newer version than what stable nixpkgs provides.
+
 ### React patterns
 
 - **Async functions with side effects** — Placing `return () => {...}` inside an `async` function makes the cleanup function a dead code path. Move side effects (realtime subscriptions, event listeners) into `useEffect` with proper cleanup returns.
