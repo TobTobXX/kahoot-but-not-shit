@@ -23,15 +23,7 @@ function AppRoutes() {
       <Route path="/host" element={<Host />} />
       <Route path="/join" element={<Join />} />
       <Route path="/play" element={<Play />} />
-      <Route
-        path="/create"
-        element={
-          <ProtectedRoute>
-            <Create />
-          </ProtectedRoute>
-        }
-      />
-      <Route
+<Route
         path="/edit"
         element={
           <ProtectedRoute>

@@ -234,9 +234,9 @@ export default function HostLibrary() {
         {/* Create / Import */}
         {user && (
           <div className="flex gap-2">
-            <Link
-              to="/create"
-              className="flex-1 text-center border-2 border-dashed border-gray-300 hover:border-indigo-500 hover:bg-indigo-50 text-gray-500 hover:text-indigo-500 font-semibold py-3 rounded-xl transition-colors"
+<Link
+              to='/edit'
+              className='flex-1 text-center border-2 border-dashed border-gray-300 hover:border-indigo-500 hover:bg-indigo-50 text-gray-500 hover:text-indigo-500 font-semibold py-3 rounded-xl transition-colors'
             >
               + Create a new quiz
             </Link>

@@ -213,7 +213,7 @@ export default function Create() {
         skipReloadRef.current = true
         effectiveQuizIdRef.current = newId
         setEffectiveQuizId(newId)
-        navigate(`/create?quizId=${newId}`, { replace: true })
+        navigate(`/edit?quizId=${newId}`, { replace: true })
       } else {
         // Edit mode: diff-and-upsert so we can handle deletions without breaking FK refs.
         const { error: quizError } = await supabase
@@ -291,19 +291,6 @@ export default function Create() {
     }
   }
 
-  async function handleSave() {
-    // Cancel pending auto-save and run immediately.
-    clearTimeout(autoSaveTimerRef.current)
-    await performSave(title, isPublic, questions)
-  }
-
-  async function handleDelete() {
-    if (!confirm('Delete this quiz? This cannot be undone.')) return
-    const { error } = await supabase.from('quizzes').delete().eq('id', effectiveQuizId)
-    if (!error) navigate('/library')
-    else setSubmitError(error.message)
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -334,10 +321,14 @@ export default function Create() {
           <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Quiz' : 'Create Quiz'}</h1>
           <button
             type="button"
-            onClick={() => navigate(isEditMode ? '/library' : '/host')}
-            className="text-gray-500 hover:text-gray-900 transition-colors text-sm"
+            onClick={async () => {
+              clearTimeout(autoSaveTimerRef.current)
+              await performSave(title, isPublic, questions)
+              navigate('/library')
+            }}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors text-sm"
           >
-            Cancel
+            Save &amp; go back
           </button>
         </div>
 
@@ -397,7 +388,11 @@ export default function Create() {
 
         <button
           type="button"
-          onClick={handleSave}
+          onClick={async () => {
+            clearTimeout(autoSaveTimerRef.current)
+            const ok = await performSave(title, isPublic, questions)
+            if (ok) navigate('/library')
+          }}
           disabled={saveStatus === 'saving' || titleEmpty}
           className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
         >
@@ -409,16 +404,6 @@ export default function Create() {
             ? 'Save changes'
             : 'Save quiz'}
         </button>
-
-        {isEditMode && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="w-full border border-red-700 hover:border-red-500 text-red-400 hover:text-red-300 font-semibold py-2 rounded-lg transition-colors"
-          >
-            Delete quiz
-          </button>
-        )}
       </div>
     </div>
   )

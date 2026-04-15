@@ -49,7 +49,7 @@ export default function Header() {
       {!loading && user && (
         <>
           <button
-            onClick={() => navigate('/create')}
+            onClick={() => navigate('/edit')}
             className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors"
           >
             Create
