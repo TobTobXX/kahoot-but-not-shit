@@ -115,7 +115,7 @@ All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `qui
 | File | Purpose |
 |---|---|
 | `GOAL.md` | Product vision — what we're building and for whom |
-| `TECHNOLOGIES.md` | Stack decisions, architecture, and full DB schema |
+| `ARCHITECTURE.md` | Stack decisions, architecture, and full DB schema |
 | `STEPS.md` | Nine incremental versions (v0.1–v0.9) with checklists |
 | `TODOS.md` | Detailed task list for the current version |
 | `AGENTS.md` | Coding agent instructions and lessons learned |
