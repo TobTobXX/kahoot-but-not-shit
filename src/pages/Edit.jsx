@@ -26,7 +26,7 @@ function blankQuestion() {
 export default function Edit() {
   const [searchParams] = useSearchParams()
   const urlQuizId = searchParams.get('quizId')
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
 
   // effectiveQuizId: null until first save (create mode), then the DB quiz ID.
@@ -37,7 +37,7 @@ export default function Edit() {
   const [title, setTitle] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [questions, setQuestions] = useState([blankQuestion()])
-  const [isPro, setIsPro] = useState(false)
+  const isPro = profile?.is_pro ?? false
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
   const [loading, setLoading] = useState(Boolean(urlQuizId))
   const [authError, setAuthError] = useState(null)
@@ -142,17 +142,6 @@ export default function Edit() {
       })
   }, [urlQuizId, user.id])
 
-  useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data?.is_pro) setIsPro(true)
-      })
-  }, [user.id])
-
   async function handleImageUpload(questionIndex, file) {
     const question = questions[questionIndex]
     try {
@@ -190,6 +179,23 @@ export default function Edit() {
     }))
   }
 
+  function buildQuestionsPayloadWithIds(qs) {
+    return qs.map((q, i) => ({
+      id: q.id,
+      order_index: i,
+      question_text: q.question_text.trim(),
+      time_limit: q.time_limit,
+      points: q.points,
+      image_url: q.image_url.trim() || null,
+      answers: q.answers.map((a, ai) => ({
+        id: a.id,
+        order_index: ai,
+        answer_text: a.answer_text.trim(),
+        is_correct: a.is_correct,
+      })),
+    }))
+  }
+
   async function performSave(currentTitle, currentIsPublic, currentQuestions) {
     if (!currentTitle.trim()) return false
     if (isSavingRef.current) return false
@@ -215,67 +221,14 @@ export default function Edit() {
         setEffectiveQuizId(newId)
         navigate(`/edit?quizId=${newId}`, { replace: true })
       } else {
-        // Edit mode: diff-and-upsert so we can handle deletions without breaking FK refs.
-        const { error: quizError } = await supabase
-          .from('quizzes')
-          .update({ title: currentTitle.trim(), is_public: currentIsPublic })
-          .eq('id', quizIdToUse)
-        if (quizError) throw new Error(quizError.message)
-
-        const { data: existingQs, error: fetchErr } = await supabase
-          .from('questions')
-          .select('id')
-          .eq('quiz_id', quizIdToUse)
-        if (fetchErr) throw new Error(fetchErr.message)
-
-        const existingQIds = new Set(existingQs.map((q) => q.id))
-
-        for (const qid of existingQIds) {
-          if (!currentQuestions.find((q) => q.id === qid)) {
-            await supabase.from('questions').delete().eq('id', qid)
-          }
-        }
-
-        for (let i = 0; i < currentQuestions.length; i++) {
-          const q = currentQuestions[i]
-          const { data: qData, error: qErr } = await supabase
-            .from('questions')
-            .upsert({
-              id: q.id,
-              quiz_id: quizIdToUse,
-              order_index: i,
-              question_text: q.question_text.trim(),
-              time_limit: q.time_limit,
-              points: q.points,
-              image_url: q.image_url.trim() || null,
-            })
-            .select('id')
-          if (qErr) throw new Error(qErr.message)
-
-          const newQId = qData[0].id
-          const { data: existingAs } = await supabase
-            .from('answers')
-            .select('id')
-            .eq('question_id', newQId)
-          const existingAIds = new Set(existingAs.map((a) => a.id))
-
-          for (const aid of existingAIds) {
-            if (!q.answers.find((a) => a.id === aid)) {
-              await supabase.from('answers').delete().eq('id', aid)
-            }
-          }
-
-          for (let ai = 0; ai < q.answers.length; ai++) {
-            const a = q.answers[ai]
-            await supabase.from('answers').upsert({
-              id: a.id,
-              question_id: newQId,
-              order_index: ai,
-              answer_text: a.answer_text.trim(),
-              is_correct: a.is_correct,
-            })
-          }
-        }
+        // Edit mode: single RPC call replaces all questions and answers atomically.
+        const { error } = await supabase.rpc('update_quiz', {
+          p_quiz_id: quizIdToUse,
+          p_title: currentTitle.trim(),
+          p_is_public: currentIsPublic,
+          p_questions: buildQuestionsPayloadWithIds(currentQuestions),
+        })
+        if (error) throw new Error(error.message)
       }
 
       setSaveStatus('saved')

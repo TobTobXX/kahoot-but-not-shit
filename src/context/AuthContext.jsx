@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   // ProtectedRoute checks `loading` before acting on `user` to avoid a flash redirect.
   const [user, setUser] = useState(undefined)
   const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,12 +23,25 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!user) {
+      setProfile(null)
+      return
+    }
+    supabase
+      .from('profiles')
+      .select('username, is_pro')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => setProfile(data ?? null))
+  }, [user])
+
   async function signOut() {
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
+    <AuthContext.Provider value={{ user, loading, profile, signOut }}>
       {children}
     </AuthContext.Provider>
   )
