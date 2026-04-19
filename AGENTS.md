@@ -14,17 +14,20 @@ Always read these files at the start of a session to orient yourself before touc
 
 ## Workflow
 
-Use this workflow when working on a feature that isn't a trivial one-line change.
+Use this workflow when working on anything beyond a single-line mechanical fix (renaming a variable, fixing a typo, etc.). When in doubt, use the full workflow.
 
-1. **Read context** — read GOAL.md, ARCHITECTURE.md, TASKS.md, and TODOS.md to orient yourself.
+1. **Read context** — read GOAL.md, ARCHITECTURE.md, and TASKS.md to orient yourself.
 2. **Analyse request** — identify what the user wants. Prepare questions if things are unclear.
 3. **Read relevant code** — read whichever existing files are relevant to the upcoming work.
-6. **Draft a plan of action** — concrete, ordered steps you will take. Use the todo tool.
-4. **Anticipate challenges** — identify anything that could go wrong, ambiguities in the spec, discrepancies between existing code and the plan, or external dependencies that need user action.
-5. **Write a Briefing** — summarise the goal, the findings from step 4, the planned steps from step 3, and explicitly flag every point where the user is required to act (e.g. Supabase dashboard steps, credentials, manual verification).
-6. **Execute** — after confirmation, work through all todos. Commit after every logical unit of work.
-7. **Review for technical debt** — after the session's work is done, reflect on anything deferred, worked around, or left imperfect. Present candidate debt items to the user and ask whether any should be added to the technical debt section of TASKS.md.
-8. **Review for lessons learned** — reflect on anything non-obvious that came up during the session (API quirks, tooling gotchas, React patterns, etc.). Present candidate lessons to the user and ask whether any should be added to the "Lessons learned" section of AGENTS.md.
+4. **Draft a plan of action** — concrete, ordered steps you will take. Use the TaskCreate or todowrite (or other applicable) tools.
+5. **Anticipate challenges** — identify anything that could go wrong, ambiguities in the spec, discrepancies between existing code and the plan, or external dependencies that need user action.
+6. **Write a Briefing** — summarise the goal, the findings from step 5, the planned steps from step 4, and explicitly flag every point where the user is required to act (e.g. Supabase dashboard steps, credentials, manual verification). If steps 2–5 surfaced unclear details, ask the user for clarification here.
+7. **Get approval** — present the briefing and plan to the user and wait for explicit approval before proceeding.
+> **HARD GATE: do not create or edit any file until the user approves the plan in step 7.** Presenting the plan and immediately executing it is a workflow violation.
+
+8. **Execute** — work through all tasks. Use TaskUpdate to mark progress. Commit after every logical unit of work.
+9. **Review for technical debt** — after the session's work is done, reflect on anything deferred, worked around, or left imperfect. Present candidate debt items to the user and ask whether any should be added to the technical debt section of TASKS.md.
+10. **Review for lessons learned** — reflect on anything non-obvious that came up during the session (API quirks, tooling gotchas, React patterns, etc.). Present candidate lessons to the user and ask whether any should be added to the "Lessons learned" section of AGENTS.md.
 
 ## Running tools
 
