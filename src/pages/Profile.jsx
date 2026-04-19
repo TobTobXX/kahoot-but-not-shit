@@ -176,6 +176,13 @@ export default function Profile() {
                 {!isPro && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-gray-500">{t('profile.upgradeDesc')}</p>
+                    <p className="text-xs font-medium text-gray-600">{t('profile.proIncludesTitle')}</p>
+                    <ul className="text-sm text-gray-600 flex flex-col gap-1 pl-1">
+                      <li className="flex items-center gap-2">
+                        <span className="text-green-500 font-bold">✓</span>
+                        {t('profile.proFeatureImages')}
+                      </li>
+                    </ul>
                     {upgradeError && (
                       <p className="text-red-400 text-sm">{upgradeError}</p>
                     )}
@@ -212,6 +219,13 @@ export default function Profile() {
                 {isPro && cancelAtPeriodEnd && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-gray-500">{t('profile.resubscribeDesc')}</p>
+                    <p className="text-xs font-medium text-gray-600">{t('profile.proIncludesTitle')}</p>
+                    <ul className="text-sm text-gray-600 flex flex-col gap-1 pl-1">
+                      <li className="flex items-center gap-2">
+                        <span className="text-green-500 font-bold">✓</span>
+                        {t('profile.proFeatureImages')}
+                      </li>
+                    </ul>
                     {upgradeError && (
                       <p className="text-red-400 text-sm">{upgradeError}</p>
                     )}
