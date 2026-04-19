@@ -1,44 +1,49 @@
 -- Stripe FDW integration.
 --
--- PREREQUISITE: The Stripe wrapper must be enabled in the Supabase dashboard
--- (Integrations → Postgres Wrappers → Stripe) with your Stripe API key before
--- this migration is applied.  The dashboard creates the `stripe_wrapper` FDW
--- and the `stripe_server` foreign server automatically.
+-- The Stripe wrapper (enabled via Supabase dashboard → Integrations → Postgres
+-- Wrappers) auto-creates the foreign schema and tables.  Test-mode instances
+-- use the schema "stripe_test"; live instances use "stripe".
+--
+-- The function below detects which schema is present at call-time so the same
+-- migration works in both environments without modification.
 
-create schema if not exists stripe;
-
--- Foreign table: only the columns we need to look up subscription period end.
-create foreign table if not exists stripe.subscriptions (
-  id                   text,
-  customer             text,
-  currency             text,
-  current_period_start timestamp,
-  current_period_end   timestamp,
-  attrs                jsonb
-)
-  server stripe_server
-  options (
-    object       'subscriptions',
-    rowid_column 'id'
-  );
-
--- Security-definer RPC callable by authenticated users.
--- Joins the calling user's profile to the Stripe subscriptions foreign table
--- and returns current_period_end for their active subscription.
--- Returns NULL when the user has no subscription on record.
 create or replace function public.get_my_subscription_period_end()
 returns timestamp
-language sql
+language plpgsql
 security definer
 stable
 set search_path = public
 as $$
-  select s.current_period_end
-  from public.profiles p
-  join stripe.subscriptions s on s.id = p.stripe_subscription_id
-  where p.id = auth.uid()
-    and p.stripe_subscription_id is not null
-  limit 1;
+declare
+  v_sub_id text;
+  v_result timestamp;
+begin
+  select stripe_subscription_id into v_sub_id
+  from public.profiles
+  where id = auth.uid();
+
+  if v_sub_id is null then
+    return null;
+  end if;
+
+  if exists (
+    select 1 from information_schema.foreign_tables
+    where foreign_table_schema = 'stripe_test'
+      and foreign_table_name   = 'subscriptions'
+  ) then
+    execute 'select current_period_end from stripe_test.subscriptions where id = $1 limit 1'
+      into v_result using v_sub_id;
+  elsif exists (
+    select 1 from information_schema.foreign_tables
+    where foreign_table_schema = 'stripe'
+      and foreign_table_name   = 'subscriptions'
+  ) then
+    execute 'select current_period_end from stripe.subscriptions where id = $1 limit 1'
+      into v_result using v_sub_id;
+  end if;
+
+  return v_result;
+end;
 $$;
 
 grant execute on function public.get_my_subscription_period_end() to authenticated;
