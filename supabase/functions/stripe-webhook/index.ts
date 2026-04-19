@@ -1,11 +1,24 @@
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!)
-
 Deno.serve(async (req) => {
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
+  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
+
+  if (!stripeKey) {
+    console.error('[webhook] STRIPE_SECRET_KEY is not set')
+    return new Response('Server misconfiguration: STRIPE_SECRET_KEY not set', { status: 500 })
+  }
+  if (!webhookSecret) {
+    console.error('[webhook] STRIPE_WEBHOOK_SECRET is not set')
+    return new Response('Server misconfiguration: STRIPE_WEBHOOK_SECRET not set', { status: 500 })
+  }
+
+  const stripe = new Stripe(stripeKey)
+
   const signature = req.headers.get('stripe-signature')
   if (!signature) {
+    console.error('[webhook] request is missing the Stripe-Signature header')
     return new Response('Missing Stripe-Signature header', { status: 400 })
   }
 
@@ -14,15 +27,13 @@ Deno.serve(async (req) => {
 
   let event: Stripe.Event
   try {
-    event = await stripe.webhooks.constructEventAsync(
-      body,
-      signature,
-      Deno.env.get('STRIPE_WEBHOOK_SECRET')!,
-    )
+    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
   } catch (err) {
-    console.error('[webhook] Signature verification failed:', (err as Error).message)
+    console.error('[webhook] signature verification failed:', (err as Error).message)
     return new Response('Invalid signature', { status: 400 })
   }
+
+  console.log(`[webhook] received event ${event.type} (id: ${event.id})`)
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -36,10 +47,13 @@ Deno.serve(async (req) => {
       const session = event.data.object as Stripe.Checkout.Session
       const userId = session.subscription_data?.metadata?.supabase_user_id
         ?? session.metadata?.supabase_user_id
+
       if (!userId) {
-        console.warn('[webhook] checkout.session.completed: no supabase_user_id in metadata')
+        console.error('[webhook] checkout.session.completed: no supabase_user_id in metadata — cannot grant Pro. Session:', session.id)
         break
       }
+
+      console.log(`[webhook] checkout.session.completed: granting Pro to user ${userId}, customer ${session.customer}, subscription ${session.subscription}`)
 
       const { error } = await supabase.from('profiles').update({
         is_pro: true,
@@ -47,8 +61,11 @@ Deno.serve(async (req) => {
         stripe_subscription_id: session.subscription as string,
       }).eq('id', userId)
 
-      if (error) console.error('[webhook] checkout.session.completed DB error:', error.message)
-      else console.log(`[webhook] checkout.session.completed: granted Pro to ${userId}`)
+      if (error) {
+        console.error(`[webhook] checkout.session.completed: DB update failed for user ${userId}:`, error)
+      } else {
+        console.log(`[webhook] checkout.session.completed: Pro granted to user ${userId}`)
+      }
       break
     }
 
@@ -60,7 +77,12 @@ Deno.serve(async (req) => {
         ? invoice.customer
         : invoice.customer?.id
 
-      if (!customerId) break
+      if (!customerId) {
+        console.error('[webhook] invoice.paid: event has no customer ID — cannot confirm Pro. Invoice:', invoice.id)
+        break
+      }
+
+      console.log(`[webhook] invoice.paid: looking up profile for Stripe customer ${customerId}`)
 
       const { data, error: fetchError } = await supabase
         .from('profiles')
@@ -69,7 +91,7 @@ Deno.serve(async (req) => {
         .single()
 
       if (fetchError || !data) {
-        console.warn('[webhook] invoice.paid: no profile found for customer', customerId)
+        console.error(`[webhook] invoice.paid: no profile found for Stripe customer ${customerId}:`, fetchError)
         break
       }
 
@@ -78,8 +100,11 @@ Deno.serve(async (req) => {
         .update({ is_pro: true })
         .eq('id', data.id)
 
-      if (error) console.error('[webhook] invoice.paid DB error:', error.message)
-      else console.log(`[webhook] invoice.paid: confirmed Pro for ${data.id}`)
+      if (error) {
+        console.error(`[webhook] invoice.paid: DB update failed for user ${data.id}:`, error)
+      } else {
+        console.log(`[webhook] invoice.paid: Pro confirmed for user ${data.id}`)
+      }
       break
     }
 
@@ -91,7 +116,12 @@ Deno.serve(async (req) => {
         ? subscription.customer
         : subscription.customer?.id
 
-      if (!customerId) break
+      if (!customerId) {
+        console.error('[webhook] customer.subscription.deleted: event has no customer ID — cannot revoke Pro. Subscription:', subscription.id)
+        break
+      }
+
+      console.log(`[webhook] customer.subscription.deleted: looking up profile for Stripe customer ${customerId}`)
 
       const { data, error: fetchError } = await supabase
         .from('profiles')
@@ -100,7 +130,7 @@ Deno.serve(async (req) => {
         .single()
 
       if (fetchError || !data) {
-        console.warn('[webhook] subscription.deleted: no profile found for customer', customerId)
+        console.error(`[webhook] customer.subscription.deleted: no profile found for Stripe customer ${customerId}:`, fetchError)
         break
       }
 
@@ -109,13 +139,16 @@ Deno.serve(async (req) => {
         .update({ is_pro: false, stripe_subscription_id: null })
         .eq('id', data.id)
 
-      if (error) console.error('[webhook] subscription.deleted DB error:', error.message)
-      else console.log(`[webhook] subscription.deleted: revoked Pro for ${data.id}`)
+      if (error) {
+        console.error(`[webhook] customer.subscription.deleted: DB update failed for user ${data.id}:`, error)
+      } else {
+        console.log(`[webhook] customer.subscription.deleted: Pro revoked for user ${data.id}`)
+      }
       break
     }
 
     default:
-      console.log(`[webhook] Unhandled event type: ${event.type}`)
+      console.log(`[webhook] unhandled event type: ${event.type} (id: ${event.id}) — ignoring`)
   }
 
   // Always return 200 — Stripe retries on non-2xx responses

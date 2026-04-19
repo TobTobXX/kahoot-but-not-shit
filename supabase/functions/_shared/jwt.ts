@@ -12,11 +12,11 @@ const SUPABASE_JWT_KEYS = jose.createRemoteJWKSet(
 function getAuthToken(req: Request) {
 	const authHeader = req.headers.get("authorization");
 	if (!authHeader) {
-		throw new Error("Missing authorization header");
+		throw new Error("Missing Authorization header");
 	}
 	const [bearer, token] = authHeader.split(" ");
 	if (bearer !== "Bearer") {
-		throw new Error(`Auth header is not 'Bearer {token}'`);
+		throw new Error(`Authorization header is not 'Bearer <token>', got '${bearer}'`);
 	}
 
 	return token;
@@ -35,7 +35,16 @@ export async function AuthMiddleware(
 ) {
 	try {
 		const token = getAuthToken(req);
-		await verifySupabaseJWT(token);
+
+		try {
+			await verifySupabaseJWT(token);
+		} catch (e) {
+			console.error("[auth] JWT verification failed:", e);
+			return new Response("Unauthorized: invalid JWT", {
+				status: 401,
+				headers: corsHeaders,
+			});
+		}
 
 		const supabaseUser = createClient(
 			Deno.env.get("SUPABASE_URL")!,
@@ -46,17 +55,19 @@ export async function AuthMiddleware(
 				},
 			},
 		);
-		const { data: { user }, error: userError } = await supabaseUser.auth
-			.getUser();
+		const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 		if (userError || !user) {
-			return new Response("Unauthorized", {
+			console.error("[auth] getUser() failed:", userError);
+			return new Response("Unauthorized: could not resolve user from token", {
 				status: 401,
 				headers: corsHeaders,
 			});
 		}
 
+		console.log(`[auth] authenticated user ${user.id} (${user.email})`);
 		return await next(req, user.id, user.email ?? "");
 	} catch (e) {
+		console.error("[auth] unexpected error in AuthMiddleware:", e);
 		return Response.json(
 			{ msg: e?.toString() },
 			{ status: 401 },
