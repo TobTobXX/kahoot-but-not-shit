@@ -160,6 +160,8 @@ export default {
     cancelling: 'Cancelling…',
     cancelError: 'Failed to cancel. Please try again.',
     cancelSuccess: 'Your subscription will cancel at the end of the current billing period.',
+    resubscribeTitle: 'Resubscribe to Pro',
+    resubscribeDesc: 'Your Pro access will end on the date shown above. Resubscribe to keep it.',
   },
   edit: {
     loading: 'Loading…',

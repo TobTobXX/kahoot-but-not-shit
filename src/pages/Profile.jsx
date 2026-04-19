@@ -208,6 +208,22 @@ export default function Profile() {
                     )}
                   </div>
                 )}
+
+                {isPro && cancelAtPeriodEnd && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-gray-500">{t('profile.resubscribeDesc')}</p>
+                    {upgradeError && (
+                      <p className="text-red-400 text-sm">{upgradeError}</p>
+                    )}
+                    <button
+                      onClick={handleUpgrade}
+                      disabled={upgrading}
+                      className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
+                    >
+                      {upgrading ? t('profile.upgrading') : t('profile.resubscribeTitle')}
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}

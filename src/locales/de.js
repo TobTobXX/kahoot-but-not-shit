@@ -160,6 +160,8 @@ export default {
     cancelling: 'Kündigt…',
     cancelError: 'Kündigung fehlgeschlagen. Bitte versuche es erneut.',
     cancelSuccess: 'Dein Abonnement endet am Ende des aktuellen Abrechnungszeitraums.',
+    resubscribeTitle: 'Pro erneut abonnieren',
+    resubscribeDesc: 'Dein Pro-Zugang endet am oben angezeigten Datum. Abonniere erneut, um ihn zu behalten.',
   },
   edit: {
     loading: 'Lädt…',
