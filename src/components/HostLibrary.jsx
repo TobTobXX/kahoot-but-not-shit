@@ -50,6 +50,16 @@ function QuizCard({ quiz, isOwn, starred, onHost, onEdit: _onEdit, onExport, onD
           {quiz.created_at && (
             <p className="text-xs text-gray-400 mt-0.5">{quiz.created_at.slice(0, 10)}</p>
           )}
+          {(quiz.language || quiz.subject) && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {quiz.language && (
+                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{quiz.language}</span>
+              )}
+              {quiz.subject && (
+                <span className="text-xs bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded">{quiz.subject}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -120,7 +130,7 @@ export default function HostLibrary() {
   useEffect(() => {
     supabase
       .from('quizzes')
-      .select('id, title, is_public, questions(image_url, order_index)')
+      .select('id, title, is_public, language, subject, questions(image_url, order_index)')
       .eq('is_public', true)
       .eq('questions.order_index', 0)
       .then(({ data, error: err }) => {
@@ -135,7 +145,7 @@ export default function HostLibrary() {
     if (!user) return
     supabase
       .from('quizzes')
-      .select('id, title, creator_id, created_at, questions(image_url, order_index)')
+      .select('id, title, creator_id, created_at, language, subject, questions(image_url, order_index)')
       .eq('creator_id', user.id)
       .eq('questions.order_index', 0)
       .then(({ data }) => {
@@ -200,7 +210,7 @@ export default function HostLibrary() {
       await importQuiz(supabase, user.id, text)
       const { data } = await supabase
         .from('quizzes')
-        .select('id, title, creator_id, created_at, questions(image_url, order_index)')
+        .select('id, title, creator_id, created_at, language, subject, questions(image_url, order_index)')
         .eq('creator_id', user.id)
         .eq('questions.order_index', 0)
       if (data) setOwnQuizzes(data)
