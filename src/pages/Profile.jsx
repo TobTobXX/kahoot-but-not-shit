@@ -9,7 +9,7 @@ export default function Profile() {
   const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [isPro, setIsPro] = useState(false)
-  const [subscriptionPeriodEnd, setSubscriptionPeriodEnd] = useState(null)
+  const [periodEnd, setPeriodEnd] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
@@ -28,17 +28,16 @@ export default function Profile() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('profiles')
-        .select('username, is_pro, subscription_period_end')
-        .eq('id', user.id)
-        .single()
+      const [{ data: profile }, { data: end }] = await Promise.all([
+        supabase.from('profiles').select('username, is_pro').eq('id', user.id).single(),
+        supabase.rpc('get_my_subscription_period_end'),
+      ])
 
-      if (data) {
-        setUsername(data.username ?? '')
-        setIsPro(data.is_pro ?? false)
-        setSubscriptionPeriodEnd(data.subscription_period_end ?? null)
+      if (profile) {
+        setUsername(profile.username ?? '')
+        setIsPro(profile.is_pro ?? false)
       }
+      setPeriodEnd(end ?? null)
       setLoading(false)
     }
     load()
@@ -133,10 +132,10 @@ export default function Profile() {
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-gray-700">{t('profile.proStatus')}</span>
-                    {isPro && subscriptionPeriodEnd && (
+                    {isPro && periodEnd && (
                       <span className="text-xs text-gray-400">
                         {t('profile.renewsOn', {
-                          date: new Date(subscriptionPeriodEnd).toLocaleDateString(undefined, {
+                          date: new Date(periodEnd).toLocaleDateString(undefined, {
                             year: 'numeric', month: 'short', day: 'numeric',
                           }),
                         })}
