@@ -141,6 +141,17 @@ MODEL_VERSION is what model YOU are (eg. "Claude Sonnet 4.6", "Minimax M2.7", "G
 - **Use nixpkgs-unstable for a newer CLI** — `nix run nixpkgs#supabase-cli` gives v2.60.0. Use `nix run github:nixos/nixpkgs/nixpkgs-unstable#supabase-cli` to get v2.90.0 (the current latest). Apply the same pattern for other tools that need a newer version than what stable nixpkgs provides.
 - **Secrets are baked in at deploy time** — `supabase secrets set` does not hot-reload running Edge Functions. If secrets are set after a function is deployed, the function must be redeployed (`supabase functions deploy <name>`) before it can read them. Always set secrets before the first deploy, or redeploy immediately after.
 
+### Supabase Edge Function CORS
+
+- **Always include `apikey` in `Access-Control-Allow-Headers`** — the Supabase JS client adds an `apikey` header to every request, including `functions.invoke`. Omitting it from the allowed headers list causes the CORS preflight to fail with a null status code. Correct header: `'Access-Control-Allow-Headers': 'authorization, apikey, content-type'`.
+
 ### React patterns
 
 - **Async functions with side effects** — Placing `return () => {...}` inside an `async` function makes the cleanup function a dead code path. Move side effects (realtime subscriptions, event listeners) into `useEffect` with proper cleanup returns.
+
+### Generic UI errors
+
+ Never show only a generic error message to the user without also logging the actual error. Always `console.error(actualError)` before displaying a vague UI message.
+**Why:** User called this out directly: "I HATE the 'something went wrong' error message. At least print the error in the console."
+**How to apply:** Any catch block or error handler that shows a generic string to the user must also log the raw error object to the console.
+
