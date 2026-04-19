@@ -326,6 +326,9 @@ allow_dynamic_registration = false
 [functions.sweep-orphan-images]
 verify_jwt = false
 
+[functions.stripe-webhook]
+verify_jwt = false
+
 [functions.create-checkout-session]
 verify_jwt = false
 
