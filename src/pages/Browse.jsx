@@ -19,7 +19,7 @@ export default function Browse() {
   useEffect(() => {
     supabase
       .from('quizzes')
-      .select('id, title, is_public, language, subject, questions(image_url, order_index)')
+      .select('id, title, is_public, language, topic, questions(image_url, order_index)')
       .eq('is_public', true)
       .eq('questions.order_index', 0)
       .then(({ data, error: err }) => {

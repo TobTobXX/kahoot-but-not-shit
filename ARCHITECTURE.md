@@ -13,15 +13,16 @@ All authorization is enforced via Postgres Row Level Security (RLS) policies. Bu
 
 - **PostgreSQL** — primary data store for quizzes, questions, sessions, answers, and scores.
 - **Row Level Security (RLS)** — enforces who can read and write what, directly at the database level.
-- **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/create`, `/edit`) redirect unauthenticated users to `/login`.
+- **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/library`, `/edit`, `/profile`) redirect unauthenticated users to `/login`.
 - **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time. Enabled on `sessions`, `players`, and `player_answers`.
-- **Postgres Functions** — used for logic that must run server-side: session/player creation (with secret generation), host actions (start/advance/close/end), answer submission with scoring, and quiz save. All host and player mutations go through security-definer RPCs that verify a secret UUID stored in `localStorage`; no `auth.users` entries are created for players.
+- **Postgres Functions** — used for logic that must run server-side: session/player creation (with secret generation), host actions (start/advance/close/end), answer submission with scoring, and quiz create/update. All host and player mutations go through security-definer RPCs that verify a secret UUID stored in `localStorage`; no `auth.users` entries are created for players. Key RPCs: `create_session`, `join_session`, `start_game`, `open_next_question`, `close_question`, `end_game`, `submit_answer`, `get_correct_answer_id`, `save_quiz`, `update_quiz`.
 - **Supabase Storage** — `images` bucket (public, JPEG, 500 KiB limit) for question images. Upload is restricted to pro users (flagged in `profiles.is_pro`). Images are stored at `{userId}/{questionId}.jpg`.
-- **pg_cron** — scheduled job runs hourly to delete sessions older than 12 hours (cascade removes players, answers, etc.).
+- **pg_cron** — two scheduled jobs: (1) hourly session cleanup — deletes sessions older than 12 hours (cascade removes players, answers, etc.); (2) daily at 03:00 UTC — calls the `sweep-orphan-images` Edge Function to delete unreferenced objects from the `images` storage bucket.
+- **Supabase Edge Functions** — `sweep-orphan-images`: lists all objects in the `images` bucket, compares against `questions.image_url`, and deletes any orphans. Called by pg_cron via `pg_net`.
 
 ## Database schema
 
-All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `quizzes`, `questions`, and `answers` are creator-scoped; `sessions`, `players`, `player_answers`, and `session_question_answers` remain open (anonymous play).
+All tables have RLS enabled. `quizzes`, `questions`, and `answers` are creator-scoped (public quizzes are also readable by everyone). `sessions`, `players`, `player_answers`, and `session_question_answers` are open for anonymous play. `profiles` and `starred_quizzes` are owner-scoped.
 
 ### `quizzes`
 | column | type | notes |
@@ -31,6 +32,8 @@ All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `qui
 | `created_at` | timestamptz | default now() |
 | `creator_id` | uuid FK → auth.users | nullable; `on delete set null`; links quiz to its creator |
 | `is_public` | boolean | not null; default true; controls visibility to non-owners |
+| `language` | text | nullable; BCP-47-style code (e.g. `'en'`, `'de'`); set by creator |
+| `topic` | text | nullable; free-form topic tag (e.g. `'Math'`, `'History'`) |
 
 ### `questions`
 | column | type | notes |
@@ -107,6 +110,14 @@ All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `qui
 |---|---|---|
 | `id` | uuid PK FK → auth.users | cascade delete |
 | `is_pro` | boolean | not null; default false; set manually via Supabase dashboard; gates image upload |
+| `username` | text | nullable; optional display name |
+
+### `starred_quizzes`
+| column | type | notes |
+|---|---|---|
+| `user_id` | uuid FK → auth.users | PK (composite with `quiz_id`); cascade delete |
+| `quiz_id` | uuid FK → quizzes | cascade delete |
+| `created_at` | timestamptz | default now() |
 
 ## File index
 
@@ -117,43 +128,39 @@ All tables have RLS enabled. As of v0.9, user-scoped policies are in place: `qui
 | `GOAL.md` | Product vision — what we're building and for whom |
 | `ARCHITECTURE.md` | Stack decisions, architecture, and full DB schema |
 | `TASKS.md` | Technical debt and future ideas |
-| `TODOS.md` | Detailed task list for the current version |
-| `AGENTS.md` | Coding agent instructions and lessons learned |
+| `AGENTS.md` | Coding agent instructions and lessons learned (symlinked as `CLAUDE.md`) |
 
 ### Page hierarchy and navigation
 
 All routes are static (no dynamic path segments). Session/quiz context is passed via query parameters.
 
 ```
-/                          Home — join a game (code + nickname) or navigate to host
+/                          Home — join a game (code + nickname) or navigate to host/browse
 /login                     Login — email/password auth for quiz creators
-/profile                  Profile — view/edit your profile  [protected]
-/host                     HostLibrary — browse quizzes, pick one to host
-/host?sessionId=<uuid>     HostSession — live game management
+/profile                   Profile — view/edit your profile  [protected]
+/library                   Library — own quizzes + starred quizzes; start a session  [protected → /login]
+/browse                    Browse — public quiz catalogue; start a session (no auth needed)
+/host?sessionId=<uuid>     Host — live game management (redirects to /library if no sessionId)
 /join?code=<join_code>     Join — join by URL; auto-rejoins if a stored entry exists
 /play?code=<join_code>     Play — player game interface (waiting → answering → feedback)
-/edit                     Create — new quiz editor  [protected]
-/edit?quizId=<uuid>        Create — edit existing quiz  [protected]
+/edit                      Edit — new quiz editor  [protected]
+/edit?quizId=<uuid>        Edit — edit existing quiz  [protected]
 ```
 
-`/library` redirects to `/host`. `/create` is not a route — quiz editing lives at `/edit`.
+`/create` is not a route — quiz editing lives at `/edit`.
 
 ### Static hosting and routing
 
-Because all routes are static paths, the app uses Vite's [multi-page app](https://vite.dev/guide/build#multi-page-app) build mode. Each route has its own `<route>/index.html` at the project root (e.g. `host/index.html`, `join/index.html`). Vite is configured in `vite.config.js` with `build.rolldownOptions.input` listing all route HTML files.
+The app is a standard single-page application. Vite is configured with `base: './'` so all asset paths are relative. A static host must serve `index.html` for any unknown path (the usual SPA fallback rule). React Router handles client-side routing inside the browser.
 
-This produces a `dist/` tree where every route is a real directory with its own `index.html`, so a static file server (GitHub Pages, Netlify, etc.) can serve any route directly without redirect hacks or fallback rules.
-
-### Route entry points
-
-Each route directory at the project root contains an `index.html` that is identical to the root `index.html` and serves as the Vite entry point for that route: `login/`, `host/`, `join/`, `play/`, `edit/`, `library/`.
+`scripts/copy-index.mjs` is a helper used during development; it is not part of the production build.
 
 ### Frontend source (`src/`)
 
 | File | Purpose |
 |---|---|
 | `src/main.jsx` | React entry point; mounts app with `BrowserRouter` |
-| `src/App.jsx` | Route definitions: `/`, `/login`, `/host`, `/join`, `/play`, `/edit`, `/profile`; context passed via query params; `/library` redirects to `/host` |
+| `src/App.jsx` | Route definitions: `/`, `/login`, `/library`, `/browse`, `/host`, `/join`, `/play`, `/edit`, `/profile`; wraps tree in `I18nProvider` and `AuthProvider` |
 | `src/index.css` | Tailwind CSS import + dark base styles |
 | `src/lib/supabase.js` | Supabase client singleton |
 | `src/lib/slots.js` | Slot shuffle/color/icon utilities for split-screen answer layout |
@@ -161,16 +168,28 @@ Each route directory at the project root contains an `index.html` that is identi
 | `src/lib/imageUpload.js` | Resizes an image file to ≤1500×1000 px, encodes as JPEG, and uploads to the `images` storage bucket; returns the public URL |
 | `src/lib/quizExport.js` | `exportQuiz` — serialises a quiz to JSON with base64-embedded images; `importQuiz` — parses JSON, uploads images, and calls `save_quiz` RPC |
 | `src/context/AuthContext.jsx` | React context providing `user`, `loading`, and `signOut` from Supabase Auth |
-| `src/pages/` | One file per route: `Home`, `Login`, `Host` (thin router → HostLibrary or HostSession), `Join`, `Edit`, `Play` |
-| `src/components/Header.jsx` | Shared header bar — logo, library link, auth controls (login/logout/create) |
+| `src/context/I18nContext.jsx` | Internationalisation context — detects browser language (English/German), exposes `t(key)` translation helper and `setLang`; supported locales live in `src/locales/` |
+| `src/locales/en.js` | English UI string table |
+| `src/locales/de.js` | German UI string table |
+| `src/pages/Home.jsx` | Home — join a game (code + nickname) |
+| `src/pages/Login.jsx` | Login — email/password auth |
+| `src/pages/Library.jsx` | Library — own quizzes + starred quizzes; protected (redirects to `/login`) |
+| `src/pages/Browse.jsx` | Browse — public quiz catalogue with search and starring; no auth required |
+| `src/pages/Host.jsx` | Host — thin shell: renders HostSession when `?sessionId` is present, redirects to `/library` otherwise |
+| `src/pages/Join.jsx` | Join — join by URL; auto-rejoins if stored credentials exist |
+| `src/pages/Play.jsx` | Play — player game interface (waiting → answering → feedback) |
+| `src/pages/Edit.jsx` | Edit — create/edit quizzes; protected |
+| `src/pages/Profile.jsx` | Profile — view/edit profile; protected |
+| `src/components/Header.jsx` | Shared header bar — logo, nav links, language switcher, auth controls |
 | `src/components/HostSession.jsx` | Host session shell — orchestrates HostLobby, HostActiveQuestion, HostQuestionReview, and HostResults |
-| `src/components/HostLibrary.jsx` | Quiz picker — browse own and public quizzes, start a session, import/export |
+| `src/components/HostLibrary.jsx` | Personal library view — own quizzes + starred quizzes; create, import, export, delete, host |
 | `src/components/HostLobby.jsx` | Waiting room — players gather here before the game starts |
 | `src/components/HostActiveQuestion.jsx` | Active-question view shown to host during a live question |
 | `src/components/HostQuestionReview.jsx` | Between-question review — correct answer highlighted, per-slot response counts, optional top-5 leaderboard |
 | `src/components/HostResults.jsx` | Post-session results screen — final leaderboard and per-question breakdown with response distribution and avg time |
 | `src/components/FeedbackView.jsx` | Post-answer feedback screen shown to players |
 | `src/components/QuestionEditor.jsx` | Question + answer editor sub-component used in Edit |
+| `src/components/QuizCard.jsx` | Shared quiz card component (thumbnail, title, tags, actions) and `Section` grid wrapper; used by HostLibrary and Browse |
 | `src/components/SlotIcon.jsx` | Renders the colored shape icon for an answer slot |
 
 ### Database migrations (`supabase/migrations/`)
@@ -179,31 +198,11 @@ Migrations are applied in filename order. Each file is named `<YYYYMMDDHHmmss>_<
 
 | File | What it does |
 |---|---|
-| `…_initial.sql` | Creates core schema: `quizzes`, `questions`, `answers`, `sessions`, `players` |
-| `…_seed.sql` | Inserts sample quiz "General Knowledge" with 3 questions |
-| `…_open_policies.sql` | Open `allow all` RLS policies for all 5 core tables |
-| `…_enable_realtime_sessions.sql` | Adds `sessions` to the Supabase realtime publication |
-| `…_player_answers.sql` | Adds `player_answers` table + `question_open` on `sessions`; enables realtime on `player_answers` and `players` |
-| `…_player_answers_policy.sql` | Open `allow all` RLS policy for `player_answers` |
-| `…_session_cleanup_cron.sql` | Enables `pg_cron`; schedules hourly job to delete sessions older than 12 h |
-| `…_auth_quizzes.sql` | Adds `creator_id` + `is_public` to `quizzes`; enables realtime on `session_question_answers` |
-| `…_rls_auth.sql` | Replaces open policies with user-scoped RLS for `quizzes`, `questions`, `answers` |
-| `…_submit_answer_gate.sql` | Adds auth-uid gate to `submit_answer` (later superseded) |
-| `…_fix_submit_answer_gate.sql` | Removes incorrect auth gate from `submit_answer` (player IDs are not auth UIDs) |
-| `…_server_side_scoring.sql` | Tightens RLS on `players`/`player_answers`; adds `submit_answer` security-definer function |
-| `…_time_based_scoring.sql` | Adds `question_opened_at` on `sessions`, `points_earned` on `player_answers`; updates `submit_answer` with time-decay scoring |
-| `…_split_screen.sql` | Adds `session_question_answers` table, `current_question_slots` on `sessions`; shuffle/open question flow; updates `submit_answer` to validate slot membership |
-| `…_response_time.sql` | Adds `response_time_ms` to `player_answers`; persists elapsed time in `submit_answer` |
-| `…_streaks.sql` | Adds `streak` to `players`; applies streak flame bonus (+10% per flame ≥3) in `submit_answer` |
-| `…_correct_count.sql` | Adds `correct_count` to `players`; incremented by `submit_answer` on correct answers |
-| `…_save_quiz_rpc.sql` | Adds `save_quiz(title, is_public, questions jsonb)` RPC for atomic quiz creation |
-| `…_restrict_answers.sql` | Revokes `is_correct` SELECT from `anon` role; adds `get_correct_answer_id` RPC (gated on question being closed) |
-| `…_players_rls.sql` | Drops open UPDATE policy on `players`; keeps SELECT + INSERT open |
-| `…_submit_answer_guards.sql` | Adds window-open and current-question guards to `submit_answer` |
-| `…_pro_images.sql` | Adds `profiles` table (`is_pro`); creates `images` storage bucket; upload restricted to pro users |
-| `…_images_select_policy.sql` | Scopes images SELECT policy to authenticated users reading their own folder |
-| `…_images_jpeg.sql` | Switches `images` bucket from JPEG-XL to JPEG |
-| `…_anon_secrets.sql` | Adds `host_secret` to `sessions` and `secret` to `players`; hides both from client roles; adds host-action RPCs (`create_session`, `join_session`, `start_game`, `open_next_question`, `close_question`, `end_game`) and updates `submit_answer` to require `p_player_secret` |
+| `20260415120000_sweep_orphan_images_cron.sql` | Enables `pg_net`; adds daily pg_cron job to call the `sweep-orphan-images` Edge Function |
+| `20260430120000_squash.sql` | Full squashed schema as of 2026-04-30 — replaces all prior individual migrations. Creates all tables, constraints, foreign keys, functions, triggers, RLS policies, realtime publication entries, storage bucket policies, and the hourly session-cleanup cron job |
+| `20260501000000_update_quiz_rpc.sql` | Adds `update_quiz(quiz_id, title, is_public, questions jsonb)` RPC for atomic in-place quiz editing |
+| `20260502000000_quiz_tags.sql` | Adds `language` and `subject` columns to `quizzes`; updates `save_quiz` and `update_quiz` to accept and persist these fields |
+| `20260503000000_rename_subject_to_topic.sql` | Renames `quizzes.subject` → `quizzes.topic`; updates `save_quiz` and `update_quiz` RPC params (`p_subject` → `p_topic`) |
 
 ## Quiz export format
 

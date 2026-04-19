@@ -24,7 +24,7 @@ export default function HostLibrary() {
     if (!user) return
     supabase
       .from('quizzes')
-      .select('id, title, creator_id, created_at, language, subject, questions(image_url, order_index)')
+      .select('id, title, creator_id, created_at, language, topic, questions(image_url, order_index)')
       .eq('creator_id', user.id)
       .eq('questions.order_index', 0)
       .then(({ data }) => {
@@ -43,7 +43,7 @@ export default function HostLibrary() {
         if (ids.length === 0) return
         supabase
           .from('quizzes')
-          .select('id, title, created_at, language, subject, questions(image_url, order_index)')
+          .select('id, title, created_at, language, topic, questions(image_url, order_index)')
           .in('id', ids)
           .eq('questions.order_index', 0)
           .then(({ data: quizData }) => {
@@ -101,7 +101,7 @@ export default function HostLibrary() {
       await importQuiz(supabase, user.id, text)
       const { data } = await supabase
         .from('quizzes')
-        .select('id, title, creator_id, created_at, language, subject, questions(image_url, order_index)')
+        .select('id, title, creator_id, created_at, language, topic, questions(image_url, order_index)')
         .eq('creator_id', user.id)
         .eq('questions.order_index', 0)
       if (data) setOwnQuizzes(data)

@@ -39,7 +39,7 @@ export default function Edit() {
   const [title, setTitle] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [language, setLanguage] = useState('')
-  const [subject, setSubject] = useState('')
+  const [topic, setTopic] = useState('')
   const [questions, setQuestions] = useState([blankQuestion()])
   const isPro = profile?.is_pro ?? false
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
@@ -74,14 +74,14 @@ export default function Edit() {
     const t = title
     const p = isPublic
     const l = language
-    const s = subject
+    const s = topic
     const q = questions
 
     clearTimeout(autoSaveTimerRef.current)
     autoSaveTimerRef.current = setTimeout(() => performSave(t, p, l, s, q), 800)
 
     return () => clearTimeout(autoSaveTimerRef.current)
-  }, [title, isPublic, language, subject, questions]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [title, isPublic, language, topic, questions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Flip readyForAutoSave once initial loading is done.
   // Defined AFTER the auto-save effect so it runs after in the same flush.
@@ -96,7 +96,7 @@ export default function Edit() {
 
     supabase
       .from('quizzes')
-      .select('id, title, creator_id, is_public, language, subject')
+      .select('id, title, creator_id, is_public, language, topic')
       .eq('id', urlQuizId)
       .single()
       .then(({ data, error }) => {
@@ -113,7 +113,7 @@ export default function Edit() {
         setTitle(data.title)
         setIsPublic(data.is_public ?? false)
         setLanguage(data.language ?? '')
-        setSubject(data.subject ?? '')
+        setTopic(data.topic ?? '')
 
         supabase
           .from('questions')
@@ -204,7 +204,7 @@ export default function Edit() {
     }))
   }
 
-  async function performSave(currentTitle, currentIsPublic, currentLanguage, currentSubject, currentQuestions) {
+  async function performSave(currentTitle, currentIsPublic, currentLanguage, currentTopic, currentQuestions) {
     if (!currentTitle.trim()) return false
     if (isSavingRef.current) return false
     isSavingRef.current = true
@@ -220,7 +220,7 @@ export default function Edit() {
           p_title: currentTitle.trim(),
           p_is_public: currentIsPublic,
           p_language: currentLanguage.trim() || null,
-          p_subject: currentSubject.trim() || null,
+          p_topic: currentTopic.trim() || null,
           p_questions: buildQuestionsPayload(currentQuestions),
         })
         if (error) throw new Error(error.message)
@@ -237,7 +237,7 @@ export default function Edit() {
           p_title: currentTitle.trim(),
           p_is_public: currentIsPublic,
           p_language: currentLanguage.trim() || null,
-          p_subject: currentSubject.trim() || null,
+          p_topic: currentTopic.trim() || null,
           p_questions: buildQuestionsPayloadWithIds(currentQuestions),
         })
         if (error) throw new Error(error.message)
@@ -288,7 +288,7 @@ export default function Edit() {
             type="button"
             onClick={async () => {
               clearTimeout(autoSaveTimerRef.current)
-              await performSave(title, isPublic, language, subject, questions)
+              await performSave(title, isPublic, language, topic, questions)
               navigate('/library')
             }}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors text-sm"
@@ -337,13 +337,13 @@ export default function Edit() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-500 font-medium">{t('edit.subject')}</label>
+            <label className="text-sm text-gray-500 font-medium">{t('edit.topic')}</label>
             <input
               type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder={t('edit.subjectPlaceholder')}
+              placeholder={t('edit.topicPlaceholder')}
             />
           </div>
         </div>
@@ -381,7 +381,7 @@ export default function Edit() {
           type="button"
           onClick={async () => {
             clearTimeout(autoSaveTimerRef.current)
-            const ok = await performSave(title, isPublic, language, subject, questions)
+            const ok = await performSave(title, isPublic, language, topic, questions)
             if (ok) navigate('/library')
           }}
           disabled={saveStatus === 'saving' || titleEmpty}

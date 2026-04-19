@@ -45,13 +45,13 @@ export function QuizCard({ quiz, isOwn, starred, onHost, onExport, onDelete, onS
           {quiz.created_at && (
             <p className="text-xs text-gray-400 mt-0.5">{quiz.created_at.slice(0, 10)}</p>
           )}
-          {(quiz.language || quiz.subject) && (
+          {(quiz.language || quiz.topic) && (
             <div className="flex flex-wrap gap-1 mt-1">
               {quiz.language && (
                 <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{LANG_NAMES[quiz.language] ?? quiz.language}</span>
               )}
-              {quiz.subject && (
-                <span className="text-xs bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded">{quiz.subject}</span>
+              {quiz.topic && (
+                <span className="text-xs bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded">{quiz.topic}</span>
               )}
             </div>
           )}
