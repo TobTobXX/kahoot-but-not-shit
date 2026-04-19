@@ -1,34 +1,29 @@
-# kahoot-but-not-shit
+# Kahoot but not shit
 
-A fast, clean, self-hostable real-time quiz platform. No accounts required to play, no artificial limits, no noise in the UI.
+A simple and clean real-time quiz platform. No accounts required to play, no artificial limits, no noise in the UI.
 
-**Live instance:** https://kbns.tobtobxx.net/
-
-**Source:** https://github.com/tobtobxx/kahoot-but-not-shit
-
----
+**Try it:** https://kbns.tobtobxx.net/
 
 ## How it works
 
-Three roles:
-
-- **Quiz creator** — authenticated; creates and manages quizzes with multiple-choice questions, optional images, per-question time limits and point values.
+- **Quiz creator** — needs an account; creates and manages quizzes with multiple-choice questions, optional images, per-question time limits and point values.
 - **Host** — starts a live session from any public quiz; no account needed. Shares a 6-character join code with players. Advances questions manually, sees live response progress, and gets a full breakdown at the end.
 - **Player** — joins with just a code and a nickname. No sign-up. Gets immediate feedback after each answer and sees a live leaderboard between questions.
 
 Scoring is time-decayed and computed server-side. Consecutive correct answers earn a streak bonus.
 
----
+## Quiz import / export
 
-## Stack
+Quizzes can be exported as self-contained `.json` files (images are base64-embedded) and imported on any instance via the host library screen.
+
+You can use this script [here](scripts/kahoot.com-export.js) to export your quizzes from kahoot.com.
+Just go to https://create.kahoot.it/my-library/kahoots/all, open the developer console with F12, paste this script and press Enter. An "Export All Quizzes" button will appear.
+
+## Technology stack
 
 - **Frontend:** React 19, React Router v7, Tailwind CSS v4, Vite
 - **Backend:** Supabase (PostgreSQL, Auth, Realtime, Storage, pg_cron)
 - **No dynamic server** — the compiled static app talks directly to Supabase via the JS client.
-
-All authorization is enforced via Postgres Row Level Security. Score calculation runs inside the database as a security-definer Postgres function.
-
----
 
 ## Self-hosting
 
@@ -39,16 +34,6 @@ You need a Supabase project and a static host (Netlify, GitHub Pages, Vercel, et
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 4. Build: `npm run build` (or `nix shell nixpkgs#nodejs -c npm run build`).
 5. Deploy the `dist/` directory to any static host.
-
-Sessions older than 12 hours are automatically deleted by a pg_cron job.
-
----
-
-## Quiz import / export
-
-Quizzes can be exported as self-contained `.json` files (images are base64-embedded) and imported on any instance via the host library screen.
-
----
 
 ## Development
 

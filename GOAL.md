@@ -20,8 +20,8 @@ Three distinct roles with different authentication requirements.
 
 ### Host (may be unauthenticated)
 
-- Start a live session from any public quiz — **no account needed**.
-- When logged in, additionally see and host their own private quizzes.
+- Browse public quizzes and start a live session — **no account needed**.
+- When logged in, additionally manage a personal library (own quizzes + starred quizzes from the public catalogue).
 - Share a short join code with participants — no app or account needed on their end.
 - Sessions advance linearly — questions play in order, one at a time.
 - See a live participant list and per-question response progress during the game.
