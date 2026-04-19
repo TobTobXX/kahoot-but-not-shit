@@ -214,6 +214,8 @@ Quizzes are exported as `.json` files. The format is self-contained: images are 
   "exported_at": "<ISO 8601 timestamp>",
   "title": "Quiz Title",
   "is_public": true,
+  "language": "en",
+  "topic": "Math",
   "questions": [
     {
       "question_text": "What is 2+2?",
@@ -232,7 +234,7 @@ Quizzes are exported as `.json` files. The format is self-contained: images are 
 - Database UUIDs are stripped; new ones are assigned on import via the `save_quiz` RPC.
 - `order_index` is derived from array position on both export and import.
 - `image_data` is `null` when the question has no image. If a fetch fails during export, the field is also `null` (image silently skipped).
-- `is_public` defaults to `true` on import if absent.
+- `is_public` defaults to `false` on import if absent. `language` and `topic` default to `null`.
 - UI: **Export** button per quiz in "My Quizzes" (HostLibrary); **Import** button next to "Create new quiz" (HostLibrary).
 
 ## Frontend: React

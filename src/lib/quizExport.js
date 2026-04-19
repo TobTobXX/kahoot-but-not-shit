@@ -26,7 +26,7 @@ export async function exportQuiz(supabase, quizId) {
   console.log('[export] Fetching quiz metadata…')
   const { data: quiz, error: quizErr } = await supabase
     .from('quizzes')
-    .select('title, is_public')
+    .select('title, is_public, language, topic')
     .eq('id', quizId)
     .single()
   if (quizErr) throw new Error(quizErr.message)
@@ -72,6 +72,8 @@ export async function exportQuiz(supabase, quizId) {
       exported_at: new Date().toISOString(),
       title: quiz.title,
       is_public: quiz.is_public,
+      language: quiz.language ?? null,
+      topic: quiz.topic ?? null,
       questions: exportedQuestions,
     },
     null,
@@ -126,6 +128,8 @@ export async function importQuiz(supabase, userId, jsonString) {
   const { error } = await supabase.rpc('save_quiz', {
     p_title: data.title,
     p_is_public: data.is_public ?? false,
+    p_language: data.language ?? null,
+    p_topic: data.topic ?? null,
     p_questions: questions,
   })
 
