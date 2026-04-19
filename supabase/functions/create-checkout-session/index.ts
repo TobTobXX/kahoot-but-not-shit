@@ -3,7 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { AuthMiddleware } from "../_shared/jwt.ts";
 
-const PRICE_ID = "price_1TNyDcCvpz2eeScnkE4VutU2";
+const PRICE_ID = "price_1TO3tRCjpMVCrjw8OuWsYNCU";
 
 Deno.serve((req) => {
   if (req.method === "OPTIONS") {
