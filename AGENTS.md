@@ -143,7 +143,7 @@ MODEL_VERSION is what model YOU are (eg. "Claude Sonnet 4.6", "Minimax M2.7", "G
 
 ### Supabase Edge Function CORS
 
-- **Use `*` for `Access-Control-Allow-Headers`** — the Supabase JS client sends several custom headers (`apikey`, `x-client-info`, etc.) that vary by version. Listing them individually causes whack-a-mole preflight failures. Use `'Access-Control-Allow-Headers': '*'` — this is what the Supabase docs recommend for Edge Functions and works because the requests are non-credentialed (`Allow-Origin: *`).
+- **Use a shared `_shared/cors.ts` for CORS headers** — the Supabase JS client sends `authorization`, `x-client-info`, `apikey`, and `content-type` on every request. The canonical pattern (per Supabase docs) is a shared file at `supabase/functions/_shared/cors.ts` exporting `corsHeaders` with those four headers, imported by every browser-facing function. Do not use `*` and do not list headers inline per-function.
 
 ### React patterns
 

@@ -1,12 +1,8 @@
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const PRICE_ID = 'price_1TNyDcCvpz2eeScnkE4VutU2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': '*',
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
