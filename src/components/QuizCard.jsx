@@ -42,15 +42,6 @@ export function QuizCard({ quiz, isOwn, starred, onHost, onExport, onDelete, onS
       <div className="flex flex-col flex-1 px-3 py-2 gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-gray-900 leading-tight line-clamp-2">{quiz.title}</p>
-          {quiz.creator_username && (
-            <Link
-              to={`/browse?creator=${encodeURIComponent(quiz.creator_username)}`}
-              className="text-xs text-gray-400 hover:text-indigo-500 mt-0.5 block truncate"
-              onClick={(e) => e.stopPropagation()}
-            >
-              @{quiz.creator_username}
-            </Link>
-          )}
           {quiz.created_at && !quiz.creator_username && (
             <p className="text-xs text-gray-400 mt-0.5">{quiz.created_at.slice(0, 10)}</p>
           )}
@@ -75,6 +66,15 @@ export function QuizCard({ quiz, isOwn, starred, onHost, onExport, onDelete, onS
                 </Link>
               )}
             </div>
+          )}
+          {quiz.creator_username && (
+            <Link
+              to={`/browse?creator=${encodeURIComponent(quiz.creator_username)}`}
+              className="text-xs text-gray-400 hover:text-indigo-500 mt-0.5 block truncate w-min"
+              onClick={(e) => e.stopPropagation()}
+            >
+              @{quiz.creator_username}
+            </Link>
           )}
         </div>
 

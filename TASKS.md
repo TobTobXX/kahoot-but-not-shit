@@ -10,7 +10,4 @@ Items deferred to a later version. The version marker indicates the earliest poi
 ## Future ideas:
 
 - Music
-- Multiple correct answers
-- Profile view, quizzes form profile.
 - Migrate to PocketBase to save on hosting costs?
-- Filter by tags/language
