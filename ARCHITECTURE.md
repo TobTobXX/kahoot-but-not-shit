@@ -159,7 +159,7 @@ All routes are static (no dynamic path segments). Session/quiz context is passed
 
 ### Static hosting and routing
 
-The app is a standard single-page application. Vite is configured with `base: '/'` so all asset paths are absolute. `public/404.html` is copied verbatim to `dist/404.html` by Vite during the build, so static hosts that serve `404.html` for unknown paths (GitHub Pages, Netlify, etc.) fall back to the SPA shell. React Router handles client-side routing inside the browser.
+The app is a standard single-page application. Vite is configured with `base: '/'` so all asset paths are absolute. The build outputs a `dist/404.html` (identical to `dist/index.html`) so that static hosts that serve `404.html` for unknown paths (GitHub Pages, Netlify, etc.) fall back to the SPA shell. React Router handles client-side routing inside the browser.
 
 ### Frontend source (`src/`)
 
