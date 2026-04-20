@@ -15,10 +15,15 @@ All authorization is enforced via Postgres Row Level Security (RLS) policies. Bu
 - **Row Level Security (RLS)** — enforces who can read and write what, directly at the database level.
 - **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/library`, `/edit`, `/profile`) redirect unauthenticated users to `/login`.
 - **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time. Enabled on `sessions`, `players`, and `player_answers`.
-- **Postgres Functions** — used for logic that must run server-side: session/player creation (with secret generation), host actions (start/advance/close/end), answer submission with scoring, and quiz create/update. All host and player mutations go through security-definer RPCs that verify a secret UUID stored in `localStorage`; no `auth.users` entries are created for players. Key RPCs: `create_session`, `join_session`, `start_game`, `open_next_question`, `close_question`, `end_game`, `submit_answer`, `get_correct_answer_id`, `save_quiz`, `update_quiz`.
+- **Postgres Functions** — used for logic that must run server-side: session/player creation (with secret generation), host actions (start/advance/close/end), answer submission with scoring, and quiz create/update. All host and player mutations go through security-definer RPCs that verify a secret UUID stored in `localStorage`; no `auth.users` entries are created for players. Key RPCs: `create_session`, `join_session`, `start_game`, `open_next_question`, `close_question`, `end_game`, `submit_answer`, `get_correct_answer_id`, `save_quiz`, `update_quiz`, `get_my_subscription_period_end`.
 - **Supabase Storage** — `images` bucket (public, JPEG, 500 KiB limit) for question images. Upload is restricted to pro users (flagged in `profiles.is_pro`). Images are stored at `{userId}/{questionId}.jpg`.
 - **pg_cron** — two scheduled jobs: (1) hourly session cleanup — deletes sessions older than 12 hours (cascade removes players, answers, etc.); (2) daily at 03:00 UTC — calls the `sweep-orphan-images` Edge Function to delete unreferenced objects from the `images` storage bucket.
-- **Supabase Edge Functions** — `sweep-orphan-images`: lists all objects in the `images` bucket, compares against `questions.image_url`, and deletes any orphans. Called by pg_cron via `pg_net`.
+- **Stripe FDW** — The [Stripe Postgres Wrapper](https://supabase.com/docs/guides/database/extensions/wrappers/stripe) (enabled via Supabase dashboard → Integrations → Postgres Wrappers) exposes Stripe data as foreign tables under the `stripe` schema. The `stripe.subscriptions` table is queried by `get_my_subscription_period_end()` to read live subscription end dates without a webhook round-trip.
+- **Supabase Edge Functions** — four browser-facing functions, all authenticated via `AuthMiddleware` (`_shared/jwt.ts`) with `verify_jwt = false` in `config.toml`:
+  - `sweep-orphan-images` — lists all objects in the `images` bucket, compares against `questions.image_url`, and deletes any orphans. Called by pg_cron via `pg_net` (not browser-facing, but uses the same function infrastructure).
+  - `create-checkout-session` — creates a Stripe Checkout session for the Pro subscription. Looks up or creates a Stripe Customer, then returns a checkout URL. Requires `STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID`.
+  - `stripe-webhook` — receives Stripe webhook events (verified via `STRIPE_WEBHOOK_SECRET`). Grants Pro (`is_pro = true`, saves `stripe_customer_id` + `stripe_subscription_id`) on `checkout.session.completed`; confirms on `invoice.paid`; revokes Pro and clears IDs on `customer.subscription.deleted`. No JWT auth — Stripe signs the request directly.
+  - `cancel-subscription` — sets `cancel_at_period_end = true` on the user's Stripe subscription (cancels at cycle end, not immediately) and sets `stripe_cancel_at_period_end = true` in `profiles` as a UI hint.
 
 ## Database schema
 
@@ -109,8 +114,11 @@ All tables have RLS enabled. `quizzes`, `questions`, and `answers` are creator-s
 | column | type | notes |
 |---|---|---|
 | `id` | uuid PK FK → auth.users | cascade delete |
-| `is_pro` | boolean | not null; default false; set manually via Supabase dashboard; gates image upload |
+| `is_pro` | boolean | not null; default false; set by `stripe-webhook` on checkout/renewal, cleared on cancellation; gates image upload and other Pro features |
 | `username` | text | nullable; optional display name |
+| `stripe_customer_id` | text | nullable; Stripe Customer ID, written on first checkout; used to correlate webhook events |
+| `stripe_subscription_id` | text | nullable; active Stripe subscription ID; written on `checkout.session.completed`, cleared on `customer.subscription.deleted` |
+| `stripe_cancel_at_period_end` | boolean | not null; default false; UI hint set to `true` by `cancel-subscription` when the user schedules a cancellation; cleared to `false` when the subscription is actually deleted |
 
 ### `starred_quizzes`
 | column | type | notes |
@@ -201,6 +209,15 @@ Migrations are applied in filename order. Each file is named `<YYYYMMDDHHmmss>_<
 | `20260501000000_update_quiz_rpc.sql` | Adds `update_quiz(quiz_id, title, is_public, questions jsonb)` RPC for atomic in-place quiz editing |
 | `20260502000000_quiz_tags.sql` | Adds `language` and `subject` columns to `quizzes`; updates `save_quiz` and `update_quiz` to accept and persist these fields |
 | `20260503000000_rename_subject_to_topic.sql` | Renames `quizzes.subject` → `quizzes.topic`; updates `save_quiz` and `update_quiz` RPC params (`p_subject` → `p_topic`) |
+| `20260504000000_stripe_columns.sql` | Adds `stripe_customer_id` and `stripe_subscription_id` (both text, nullable) to `profiles` |
+| `20260505000000_subscription_period_end.sql` | Added `subscription_period_end timestamptz` to `profiles` (superseded and dropped by the next migration) |
+| `20260505000001_drop_subscription_period_end.sql` | Drops `profiles.subscription_period_end` — period end is now read live from the Stripe FDW |
+| `20260506000000_stripe_fdw.sql` | Adds `get_my_subscription_period_end()` security-definer RPC; queries `stripe.subscriptions` (or `stripe_test.subscriptions`) via the Stripe Postgres Wrapper FDW to return the caller's subscription end date |
+| `20260507000000_cancel_at_period_end.sql` | Adds `stripe_cancel_at_period_end boolean not null default false` to `profiles` |
+| `20260508000000_stripe_fdw_table_names.sql` | Updates `get_my_subscription_period_end()` to detect `stripe.subscriptions_prod` vs `stripe.subscriptions_dev` table names (intermediate iteration) |
+| `20260509000000_stripe_fdw_env_param.sql` | Replaces auto-detection with an explicit `p_env text` parameter (`'dev'` or `'prod'`); drops the no-arg overload (intermediate iteration) |
+| `20260510000000_drop_stale_rpc_overloads.sql` | Drops stale 3- and 4-arg overloads of `save_quiz` and `update_quiz` left behind by earlier migrations |
+| `20260511000000_simplify_period_end_rpc.sql` | Simplifies `get_my_subscription_period_end()` back to no arguments; queries `stripe.subscriptions` directly now that the FDW is stable in all environments |
 
 ## Quiz export format
 
