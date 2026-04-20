@@ -151,9 +151,7 @@ All routes are static (no dynamic path segments). Session/quiz context is passed
 
 ### Static hosting and routing
 
-The app is a standard single-page application. Vite is configured with `base: './'` so all asset paths are relative. A static host must serve `index.html` for any unknown path (the usual SPA fallback rule). React Router handles client-side routing inside the browser.
-
-`scripts/copy-index.mjs` is a helper used during development; it is not part of the production build.
+The app is a standard single-page application. Vite is configured with `base: '/'` so all asset paths are absolute. The build outputs a `dist/404.html` (identical to `dist/index.html`) so that static hosts that serve `404.html` for unknown paths (GitHub Pages, Netlify, etc.) fall back to the SPA shell. React Router handles client-side routing inside the browser.
 
 ### Frontend source (`src/`)
 
