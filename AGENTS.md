@@ -85,8 +85,8 @@ nix run github:nixos/nixpkgs/nixpkgs-unstable#supabase-cli -- functions serve --
 
 #### Known local limitations
 
-- **Stripe FDW** (`get_my_subscription_period_end`) is not available locally; the RPC returns null. Acceptable for dev.
 - **Cron job** (`20260415120000_sweep_orphan_images_cron.sql`) hardcodes the production Edge Function URL. The job registers in the local DB but is harmless — it fires at 03:00 UTC and calls the production cleanup endpoint.
+- The seed data doesn't include accounts and the stripe FDW. Warn the user before resetting the db.
 
 ### Remote (production)
 
