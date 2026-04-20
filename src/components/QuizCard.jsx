@@ -42,16 +42,37 @@ export function QuizCard({ quiz, isOwn, starred, onHost, onExport, onDelete, onS
       <div className="flex flex-col flex-1 px-3 py-2 gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-gray-900 leading-tight line-clamp-2">{quiz.title}</p>
-          {quiz.created_at && (
+          {quiz.creator_username && (
+            <Link
+              to={`/browse?creator=${encodeURIComponent(quiz.creator_username)}`}
+              className="text-xs text-gray-400 hover:text-indigo-500 mt-0.5 block truncate"
+              onClick={(e) => e.stopPropagation()}
+            >
+              @{quiz.creator_username}
+            </Link>
+          )}
+          {quiz.created_at && !quiz.creator_username && (
             <p className="text-xs text-gray-400 mt-0.5">{quiz.created_at.slice(0, 10)}</p>
           )}
           {(quiz.language || quiz.topic) && (
             <div className="flex flex-wrap gap-1 mt-1">
               {quiz.language && (
-                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{LANG_NAMES[quiz.language] ?? quiz.language}</span>
+                <Link
+                  to={`/browse?language=${encodeURIComponent(quiz.language)}`}
+                  className="text-xs bg-gray-100 text-gray-500 hover:bg-gray-200 px-1.5 py-0.5 rounded"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {LANG_NAMES[quiz.language] ?? quiz.language}
+                </Link>
               )}
               {quiz.topic && (
-                <span className="text-xs bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded">{quiz.topic}</span>
+                <Link
+                  to={`/browse?topic=${encodeURIComponent(quiz.topic)}`}
+                  className="text-xs bg-indigo-50 text-indigo-500 hover:bg-indigo-100 px-1.5 py-0.5 rounded"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {quiz.topic}
+                </Link>
               )}
             </div>
           )}

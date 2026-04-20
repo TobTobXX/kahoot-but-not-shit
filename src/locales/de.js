@@ -120,6 +120,11 @@ export default {
     publicQuizzes: 'Öffentliche Quizze',
     search: 'Suchen…',
     noPublicQuizzes: 'Keine öffentlichen Quizze gefunden.',
+    filterLanguage: 'Sprache',
+    filterTopic: 'Thema',
+    filterCreator: 'Ersteller',
+    allLanguages: 'Alle Sprachen',
+    allTopics: 'Alle Themen',
   },
   hostLibrary: {
     createNew: '+ Neues Quiz erstellen',
