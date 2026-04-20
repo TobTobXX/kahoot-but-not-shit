@@ -19,12 +19,11 @@ export default function Home() {
 
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('id')
+      .select('state')
       .eq('join_code', code)
-      .in('state', ['waiting', 'active'])
-      .single()
+      .maybeSingle()
 
-    if (sessionError || !session) {
+    if (sessionError || !session || !['waiting', 'active'].includes(session.state)) {
       setError(t('home.sessionNotFound'))
       return
     }
@@ -38,26 +37,27 @@ export default function Home() {
         .maybeSingle()
 
       if (existingPlayer) {
-        localStorage.setItem(`player_${code}`, JSON.stringify({ player_id: existingPlayer.id, nickname }))
         navigate(`/play?code=${code}`)
         return
       }
     }
 
-    const { data: player, error: playerError } = await supabase
-      .from('players')
-      .insert({ session_id: session.id, nickname })
-      .select('id')
-      .single()
+    const { data, error: joinError } = await supabase.rpc('join_session', {
+      p_join_code: code,
+      p_nickname: nickname,
+    })
 
-    if (playerError) {
-      setError(playerError.message)
+    if (joinError) {
+      setError(joinError.message)
       return
     }
 
-    // player_id is the player's only credential — stored here and read back in Play.jsx
-    // to identify the player to Supabase without requiring an account.
-    localStorage.setItem(`player_${code}`, JSON.stringify({ player_id: player.id, nickname }))
+    localStorage.setItem(`player_${code}`, JSON.stringify({
+      player_id: data.player_id,
+      player_secret: data.secret,
+      nickname,
+      joined_at: Date.now(),
+    }))
     navigate(`/play?code=${code}`)
   }
 
