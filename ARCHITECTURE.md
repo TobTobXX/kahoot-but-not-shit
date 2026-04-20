@@ -204,20 +204,7 @@ Migrations are applied in filename order. Each file is named `<YYYYMMDDHHmmss>_<
 
 | File | What it does |
 |---|---|
-| `20260415120000_sweep_orphan_images_cron.sql` | Enables `pg_net`; adds daily pg_cron job to call the `sweep-orphan-images` Edge Function |
-| `20260430120000_squash.sql` | Full squashed schema as of 2026-04-30 — replaces all prior individual migrations. Creates all tables, constraints, foreign keys, functions, triggers, RLS policies, realtime publication entries, storage bucket policies, and the hourly session-cleanup cron job |
-| `20260501000000_update_quiz_rpc.sql` | Adds `update_quiz(quiz_id, title, is_public, questions jsonb)` RPC for atomic in-place quiz editing |
-| `20260502000000_quiz_tags.sql` | Adds `language` and `subject` columns to `quizzes`; updates `save_quiz` and `update_quiz` to accept and persist these fields |
-| `20260503000000_rename_subject_to_topic.sql` | Renames `quizzes.subject` → `quizzes.topic`; updates `save_quiz` and `update_quiz` RPC params (`p_subject` → `p_topic`) |
-| `20260504000000_stripe_columns.sql` | Adds `stripe_customer_id` and `stripe_subscription_id` (both text, nullable) to `profiles` |
-| `20260505000000_subscription_period_end.sql` | Added `subscription_period_end timestamptz` to `profiles` (superseded and dropped by the next migration) |
-| `20260505000001_drop_subscription_period_end.sql` | Drops `profiles.subscription_period_end` — period end is now read live from the Stripe FDW |
-| `20260506000000_stripe_fdw.sql` | Adds `get_my_subscription_period_end()` security-definer RPC; queries `stripe.subscriptions` (or `stripe_test.subscriptions`) via the Stripe Postgres Wrapper FDW to return the caller's subscription end date |
-| `20260507000000_cancel_at_period_end.sql` | Adds `stripe_cancel_at_period_end boolean not null default false` to `profiles` |
-| `20260508000000_stripe_fdw_table_names.sql` | Updates `get_my_subscription_period_end()` to detect `stripe.subscriptions_prod` vs `stripe.subscriptions_dev` table names (intermediate iteration) |
-| `20260509000000_stripe_fdw_env_param.sql` | Replaces auto-detection with an explicit `p_env text` parameter (`'dev'` or `'prod'`); drops the no-arg overload (intermediate iteration) |
-| `20260510000000_drop_stale_rpc_overloads.sql` | Drops stale 3- and 4-arg overloads of `save_quiz` and `update_quiz` left behind by earlier migrations |
-| `20260511000000_simplify_period_end_rpc.sql` | Simplifies `get_my_subscription_period_end()` back to no arguments; queries `stripe.subscriptions` directly now that the FDW is stable in all environments |
+| `20260513000000_rls_hardening.sql` | Full squashed schema as of 2026-05-13 — single authoritative migration. Creates all tables, constraints, foreign keys, functions, triggers, RLS policies, realtime publication entries, storage bucket policies, pg_cron jobs (hourly session cleanup + daily orphan-image sweep), and the Stripe FDW RPC |
 
 ## Quiz export format
 
