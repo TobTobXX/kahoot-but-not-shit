@@ -2,7 +2,7 @@
 
 A simple and clean real-time quiz platform. No accounts required to play, no artificial limits, no noise in the UI.
 
-**Try it:** https://groupquiz.tobtobxx.net/
+**Try it:** https://groupquiz.net/
 
 ## How it works
 
