@@ -10,4 +10,5 @@ Items deferred to a later version. The version marker indicates the earliest poi
 ## Future ideas:
 
 - Music
+- Preview quizzes.
 - Migrate to PocketBase to save on hosting costs?

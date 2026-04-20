@@ -1,5 +1,5 @@
-const MAX_WIDTH = 1500
-const MAX_HEIGHT = 1000
+const MAX_WIDTH = 1000
+const MAX_HEIGHT = 800
 const JPEG_QUALITY = 0.85
 
 /**
