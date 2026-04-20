@@ -34,7 +34,7 @@ export default function Profile() {
     async function load() {
       const [{ data: profile }, { data: end }] = await Promise.all([
         supabase.from('profiles').select('username, is_pro, stripe_cancel_at_period_end').eq('id', user.id).single(),
-        supabase.rpc('get_my_subscription_period_end', { p_env: import.meta.env.MODE === 'production' ? 'prod' : 'dev' }),
+        supabase.rpc('get_my_subscription_period_end'),
       ])
 
       if (profile) {
