@@ -11,7 +11,6 @@ Items deferred to a later version. The version marker indicates the earliest poi
 
 - Music
 - Multiple correct answers
-- Question with 0 points or no right/wrong
 - Profile view, quizzes form profile.
 - Migrate to PocketBase to save on hosting costs?
 - Filter by tags/language

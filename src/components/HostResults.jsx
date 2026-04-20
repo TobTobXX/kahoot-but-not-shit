@@ -149,11 +149,13 @@ export default function HostResults({ sessionId, quizId, onHostAgain }) {
                 <div key={q.id} className="bg-indigo-50 rounded-xl p-5 flex gap-4">
                   {/* Optional image — left side */}
                   {q.image_url && (
-                    <img
-                      src={q.image_url}
-                      alt=""
-                      className="max-h-28 max-w-40 object-contain rounded-lg shrink-0 self-start"
-                    />
+                    <div className="w-32 h-28 shrink-0 self-start rounded-lg overflow-hidden bg-indigo-100/50 flex items-center justify-center">
+                      <img
+                        src={q.image_url}
+                        alt=""
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
                   )}
 
                   {/* Question content — right side */}
