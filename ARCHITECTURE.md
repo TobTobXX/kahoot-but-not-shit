@@ -205,6 +205,7 @@ Migrations are applied in filename order. Each file is named `<YYYYMMDDHHmmss>_<
 | File | What it does |
 |---|---|
 | `20260513000000_rls_hardening.sql` | Full squashed schema as of 2026-05-13 — single authoritative migration. Creates all tables, constraints, foreign keys, functions, triggers, RLS policies, realtime publication entries, storage bucket policies, pg_cron jobs (hourly session cleanup + daily orphan-image sweep), and the Stripe FDW RPC |
+| `20260514000000_hide_secret_columns.sql` | Security fix: switches `sessions` and `players` from `GRANT ALL` (table-level) to column-level `SELECT` grants, hiding `sessions.host_secret` and `players.secret` from `anon`/`authenticated` via both REST and Realtime. Also adds explicit auth/ownership guards to `save_quiz` (rejects unauthenticated callers) and `update_quiz` (rejects non-owners). |
 
 ## Quiz export format
 
