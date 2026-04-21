@@ -12,7 +12,7 @@ export default {
     browse: 'Browse',
     library: 'Library',
     login: 'Log in',
-    create: 'Create',
+    create: 'Create Quiz',
     logout: 'Log out',
   },
   home: {
