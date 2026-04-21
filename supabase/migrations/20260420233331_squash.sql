@@ -870,8 +870,10 @@ END;
 $$;
 
 
--- Joins a session by join_code; returns {player_id, secret}.
--- Both values must be stored client-side (localStorage) and passed to submit_answer.
+-- Joins a session by join_code; returns {session_id, player_id, secret}.
+-- All three values must be stored client-side (localStorage); player_id and secret
+-- are passed to submit_answer; session_id lets callers query sessions by id
+-- (join_code is not readable by client roles).
 CREATE OR REPLACE FUNCTION "public"."join_session"("p_join_code" "text", "p_nickname" "text")
 RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -902,7 +904,7 @@ BEGIN
   VALUES (v_session_id, p_nickname)
   RETURNING id, player_secret INTO v_player_id, v_secret;
 
-  RETURN jsonb_build_object('player_id', v_player_id, 'secret', v_secret);
+  RETURN jsonb_build_object('session_id', v_session_id, 'player_id', v_player_id, 'secret', v_secret);
 END;
 $$;
 

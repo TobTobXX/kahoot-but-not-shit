@@ -24,56 +24,38 @@ export default function Join() {
       return
     }
 
-    async function check() {
-      console.log(`[join] Checking session for code ${code}…`)
-      let stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
-      // Discard entries older than 13 hours (sessions are cleaned up after 12h by cron)
-      if (stored?.joined_at && Date.now() - stored.joined_at > 13 * 60 * 60 * 1000) {
-        console.log('[join] Stored player entry expired, discarding')
-        localStorage.removeItem(`player_${code}`)
-        stored = null
-      }
+    let stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
+    // Discard entries older than 13 hours (sessions are cleaned up after 12h by cron)
+    if (stored?.joined_at && Date.now() - stored.joined_at > 13 * 60 * 60 * 1000) {
+      console.log('[join] Stored player entry expired, discarding')
+      localStorage.removeItem(`player_${code}`)
+      stored = null
+    }
 
-      const { data: session } = await supabase
-        .from('sessions')
-        .select('id, state')
-        .eq('join_code', code)
+    if (!stored?.player_id) {
+      // No stored player — show the join form immediately
+      setChecking(false)
+      return
+    }
+
+    // Has stored player — verify the player record still exists
+    async function check() {
+      console.log('[join] Found stored player, checking if still valid…')
+      const { data: player } = await supabase
+        .from('players')
+        .select('id')
+        .eq('id', stored.player_id)
         .maybeSingle()
 
-      if (!session) {
-        console.log('[join] Session not found')
-        setError(t('join.sessionNotFound'))
-        setChecking(false)
+      if (player) {
+        console.log('[join] Rejoining as', stored.nickname)
+        navigate(`/play?code=${code}`, { replace: true })
         return
       }
 
-      if (session.state === 'finished') {
-        console.log('[join] Session already finished')
-        if (stored) localStorage.removeItem(`player_${code}`)
-        setError(t('join.sessionEnded'))
-        setChecking(false)
-        return
-      }
-
-      if (stored?.player_id) {
-        console.log('[join] Found stored player, checking if still valid…')
-        const { data: player } = await supabase
-          .from('players')
-          .select('id')
-          .eq('id', stored.player_id)
-          .maybeSingle()
-
-        if (player) {
-          console.log('[join] Rejoining as', stored.nickname)
-          navigate(`/play?code=${code}`, { replace: true })
-          return
-        }
-
-        console.log('[join] Stored player no longer exists, showing join form')
-        // Player record gone — pre-fill nickname and show form
-        setNickname(stored.nickname ?? '')
-      }
-
+      console.log('[join] Stored player no longer exists, showing join form')
+      // Player record gone — pre-fill nickname and show form
+      setNickname(stored.nickname ?? '')
       setChecking(false)
     }
 
@@ -98,6 +80,7 @@ export default function Join() {
 
     console.log('[join] Joined successfully, navigating to play…')
     localStorage.setItem(`player_${code}`, JSON.stringify({
+      session_id: data.session_id,
       player_id: data.player_id,
       player_secret: data.secret,
       nickname,

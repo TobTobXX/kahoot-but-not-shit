@@ -42,6 +42,7 @@ export default function Home() {
     }
 
     localStorage.setItem(`player_${code}`, JSON.stringify({
+      session_id: data.session_id,
       player_id: data.player_id,
       player_secret: data.secret,
       nickname,

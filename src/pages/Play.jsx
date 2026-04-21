@@ -87,24 +87,24 @@ export default function Play() {
         return
       }
 
+      const stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
+      const playerId = stored?.player_id
+      if (!playerId || !stored?.session_id) {
+        navigate(`/join?code=${code}`, { replace: true })
+        return
+      }
+      setStoredPlayerId(playerId)
+
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .select('id, state, active_question_id')
-        .eq('join_code', code)
+        .eq('id', stored.session_id)
         .single()
 
       if (sessionError || !session) {
         setError(t('play.sessionNotFound'))
         return
       }
-
-      const stored = JSON.parse(localStorage.getItem(`player_${code}`) ?? 'null')
-      const playerId = stored?.player_id
-      if (!playerId) {
-        navigate(`/join?code=${code}`, { replace: true })
-        return
-      }
-      setStoredPlayerId(playerId)
 
       const { data: player, error: playerError } = await supabase
         .from('players')
