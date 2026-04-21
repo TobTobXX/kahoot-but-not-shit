@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useI18n } from '../context/I18nContext'
 import HostLobby from './HostLobby'
@@ -11,10 +10,8 @@ import Header from './Header'
 // Shown at /host?sessionId=<uuid>. Manages the live game: waiting room,
 // active question display, review screen, and the finished state.
 export default function HostSession({ sessionId }) {
-  const navigate = useNavigate()
   const { t } = useI18n()
   const [joinCode, setJoinCode] = useState(null)
-  const [quizId, setQuizId] = useState(null)
   const [sessionState, setSessionState] = useState('waiting')
   // Full session_questions row for the currently active question.
   // Has: id, question_index, question_text, image_url, time_limit, points,
@@ -142,14 +139,6 @@ export default function HostSession({ sessionId }) {
     if (err) { console.error('[host] end_session failed:', err.message); setError(err.message) }
   }
 
-  async function hostAgain() {
-    console.log('[host] Creating new session for same quiz…')
-    const { data, error: err } = await supabase.rpc('create_session', { p_quiz_id: quizId })
-    if (err) { console.error('[host] create_session failed:', err.message); setError(err.message); return }
-    localStorage.setItem(`host_${data.session_id}`, data.host_secret)
-    navigate(`/host?sessionId=${data.session_id}`)
-  }
-
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
       await containerRef.current?.requestFullscreen()
@@ -175,7 +164,7 @@ export default function HostSession({ sessionId }) {
   useEffect(() => {
     supabase
       .from('sessions')
-      .select('id, state, quiz_id, active_question_id')
+      .select('id, state, total_questions, active_question_id')
       .eq('id', sessionId)
       .single()
       .then(({ data, error: err }) => {
@@ -187,7 +176,7 @@ export default function HostSession({ sessionId }) {
         setJoinCode(localStorage.getItem(`host_${sessionId}_join_code`) ?? '')
         setSessionState(data.state)
         sessionStateRef.current = data.state
-        setQuizId(data.quiz_id)
+        setTotalQuestions(data.total_questions)
         prevActiveQuestionIdRef.current = data.active_question_id
 
         if (data.active_question_id) {
@@ -204,19 +193,6 @@ export default function HostSession({ sessionId }) {
           .then(({ data: ps }) => { if (ps) setPlayers(ps) })
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- sessionId intentionally only read on mount
-
-  // Fetch total question count when quizId becomes known
-  useEffect(() => {
-    if (!quizId) return
-    supabase
-      .from('questions')
-      .select('id', { count: 'exact', head: true })
-      .eq('quiz_id', quizId)
-      .then(({ count, error: err }) => {
-        if (err) setError(err.message)
-        else setTotalQuestions(count)
-      })
-  }, [quizId])
 
   // Realtime: session state/active_question_id changes + player joins
   useEffect(() => {
@@ -339,7 +315,6 @@ export default function HostSession({ sessionId }) {
     return (
       <HostResults
         sessionId={sessionId}
-        onHostAgain={hostAgain}
       />
     )
   }

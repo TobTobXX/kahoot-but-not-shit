@@ -108,7 +108,6 @@ export default {
   hostResults: {
     loading: 'Loading results…',
     gameOver: 'Game over',
-    hostAgain: 'Host again',
     leaderboard: 'Leaderboard',
     breakdown: 'Per-question breakdown',
     pctCorrect: '{pct}% correct',

@@ -7,7 +7,7 @@ import { useI18n } from '../context/I18nContext'
 
 // Post-session results screen shown to the host when state === 'finished'.
 // Displays the final leaderboard and a per-question breakdown.
-export default function HostResults({ sessionId, onHostAgain }) {
+export default function HostResults({ sessionId }) {
   const [leaderboard, setLeaderboard] = useState([])
   const [questions, setQuestions] = useState([])
   // Map: session_question_id → { slots, sessionAnswers, correct_slot_indices }
@@ -69,16 +69,8 @@ export default function HostResults({ sessionId, onHostAgain }) {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex items-center justify-between px-6 py-2 border-b border-gray-200">
+      <div className="px-6 py-2 border-b border-gray-200">
         <h1 className="text-xl font-bold">{t('hostResults.gameOver')}</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={onHostAgain}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition-colors"
-          >
-            {t('hostResults.hostAgain')}
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">

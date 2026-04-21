@@ -108,7 +108,6 @@ export default {
   hostResults: {
     loading: 'Lade Ergebnisse…',
     gameOver: 'Spiel vorbei',
-    hostAgain: 'Nochmal starten',
     leaderboard: 'Rangliste',
     breakdown: 'Frage-für-Frage Auswertung',
     pctCorrect: '{pct}% richtig',
