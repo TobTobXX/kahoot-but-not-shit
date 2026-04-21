@@ -203,6 +203,7 @@ CREATE TABLE IF NOT EXISTS "public"."sessions" (
     "state"      "text" DEFAULT 'waiting'::"text" NOT NULL,
     "active_question_id" "uuid" DEFAULT NULL, -- FK set after session_questions is created (deferred below)
     "host_secret" "uuid" DEFAULT "gen_random_uuid"() NOT NULL, -- hidden from client roles; verified by host RPCs
+    "total_questions" integer NOT NULL DEFAULT 0, -- snapshot of question count at session-creation time
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 ALTER TABLE "public"."sessions" ENABLE ROW LEVEL SECURITY;
@@ -213,7 +214,7 @@ CREATE POLICY "sessions_select" ON "public"."sessions" FOR SELECT USING (true);
 -- then grant only the safe columns.  This hides host_secret from anon/authenticated
 -- via both the REST API and Realtime — the secret never leaves the DB.
 REVOKE SELECT ON "public"."sessions" FROM anon, authenticated;
-GRANT  SELECT (id, state, active_question_id) ON "public"."sessions" TO anon, authenticated;
+GRANT  SELECT (id, state, active_question_id, total_questions) ON "public"."sessions" TO anon, authenticated;
 -- Enable realtime on the tables that host and player pages subscribe to.
 -- Column lists are restricted to what subscribers actually need; secret columns
 -- (host_secret, player_secret) and unused columns are intentionally omitted.
@@ -542,12 +543,13 @@ RETURNS "jsonb"
     SET "search_path" TO 'public'
     AS $$
 DECLARE
-  v_session_id  uuid;
-  v_join_code   text;
-  v_host_secret uuid;
-  v_chars       text    := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_i           integer;
-  v_attempt     integer := 0;
+  v_session_id      uuid;
+  v_join_code       text;
+  v_host_secret     uuid;
+  v_total_questions integer;
+  v_chars           text    := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_i               integer;
+  v_attempt         integer := 0;
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.quizzes
@@ -557,6 +559,10 @@ BEGIN
     RAISE EXCEPTION 'Quiz not found or not accessible';
   END IF;
 
+  SELECT count(*) INTO v_total_questions
+    FROM public.questions
+   WHERE quiz_id = p_quiz_id;
+
   LOOP
     v_join_code := '';
     FOR v_i IN 1..6 LOOP
@@ -565,8 +571,8 @@ BEGIN
     END LOOP;
 
     BEGIN
-      INSERT INTO public.sessions (quiz_id, join_code, state)
-      VALUES (p_quiz_id, v_join_code, 'waiting')
+      INSERT INTO public.sessions (quiz_id, join_code, state, total_questions)
+      VALUES (p_quiz_id, v_join_code, 'waiting', v_total_questions)
       RETURNING id, host_secret INTO v_session_id, v_host_secret;
       EXIT;
     EXCEPTION WHEN unique_violation THEN
