@@ -32,37 +32,38 @@ export default function Header() {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Right: auth controls */}
-      {!loading && !user && (
-        <button
-          onClick={() => navigate('/login')}
-          className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          {t('header.login')}
-        </button>
-      )}
-      {!loading && user && (
-        <>
-          <button
-            onClick={() => navigate('/edit')}
-            className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors"
-          >
-            {t('header.create')}
-          </button>
-          <Link
-            to="/profile"
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            {displayName}
-          </Link>
-          <button
-            onClick={signOut}
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            {t('header.logout')}
-          </button>
-        </>
-      )}
+       {/* Right: auth controls */}
+       <button
+         onClick={() => (user ? navigate('/edit') : navigate('/login'))}
+         className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors"
+       >
+         {t('header.create')}
+       </button>
+
+       {!loading && !user && (
+         <button
+           onClick={() => navigate('/login')}
+           className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+         >
+           {t('header.login')}
+         </button>
+       )}
+       {!loading && user && (
+         <>
+           <Link
+             to="/profile"
+             className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+           >
+             {displayName}
+           </Link>
+           <button
+             onClick={signOut}
+             className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+           >
+             {t('header.logout')}
+           </button>
+         </>
+       )}
     </header>
   )
 }
