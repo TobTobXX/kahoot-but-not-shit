@@ -14,20 +14,20 @@ All authorization is enforced via Postgres Row Level Security (RLS) policies. Bu
 - **PostgreSQL** — primary data store for quizzes, questions, sessions, answers, and scores.
 - **Row Level Security (RLS)** — enforces who can read and write what, directly at the database level.
 - **Supabase Auth** — handles quiz creator accounts (email/password). Players do not need an account. Auth state is exposed app-wide via `AuthContext`; protected routes (`/library`, `/edit`, `/profile`) redirect unauthenticated users to `/login`.
-- **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time. Enabled on `sessions`, `players`, and `player_answers`.
-- **Postgres Functions** — used for logic that must run server-side: session/player creation (with secret generation), host actions (start/advance/close/end), answer submission with scoring, and quiz create/update. All host and player mutations go through security-definer RPCs that verify a secret UUID stored in `localStorage`; no `auth.users` entries are created for players. Key RPCs: `create_session`, `join_session`, `start_game`, `open_next_question`, `close_question`, `end_game`, `submit_answer`, `get_correct_answer_id`, `save_quiz`, `update_quiz`, `get_my_subscription_period_end`.
-- **Supabase Storage** — `images` bucket (public, JPEG, 500 KiB limit) for question images. Upload is restricted to pro users (flagged in `profiles.is_pro`). Images are stored at `{userId}/{questionId}.jpg`.
+- **Supabase Realtime** — WebSocket-based pub/sub over Postgres changes. Used for syncing session state across host and all players in real time. Enabled on `sessions`, `players`, `session_questions`, and `session_answers`.
+- **Postgres Functions** — used for logic that must run server-side: session/player creation (with secret generation), host actions (start/advance/close/end), answer submission with scoring, and quiz create/update. All host and player mutations go through security-definer RPCs that verify a secret UUID stored in `localStorage`; no `auth.users` entries are created for players. Key RPCs: `start_session`, `join_session`, `next_question`, `score_question`, `end_session`, `submit_answer`, `save_quiz`, `get_my_subscription_period_end`.
+- **Supabase Storage** — `images` bucket (public, JPEG, 500 KiB limit) for question images. Upload is restricted to pro users (flagged in `subscriptions.is_pro`). Images are stored at `{userId}/{questionId}.jpg`.
 - **pg_cron** — two scheduled jobs: (1) hourly session cleanup — deletes sessions older than 12 hours (cascade removes players, answers, etc.); (2) daily at 03:00 UTC — calls the `sweep-orphan-images` Edge Function to delete unreferenced objects from the `images` storage bucket.
 - **Stripe FDW** — The [Stripe Postgres Wrapper](https://supabase.com/docs/guides/database/extensions/wrappers/stripe) (enabled via Supabase dashboard → Integrations → Postgres Wrappers) exposes Stripe data as foreign tables under the `stripe` schema. The `stripe.subscriptions` table is queried by `get_my_subscription_period_end()` to read live subscription end dates without a webhook round-trip.
 - **Supabase Edge Functions** — four browser-facing functions, all authenticated via `AuthMiddleware` (`_shared/jwt.ts`) with `verify_jwt = false` in `config.toml`:
   - `sweep-orphan-images` — lists all objects in the `images` bucket, compares against `questions.image_url`, and deletes any orphans. Called by pg_cron via `pg_net` (not browser-facing, but uses the same function infrastructure).
   - `create-checkout-session` — creates a Stripe Checkout session for the Pro subscription. Looks up or creates a Stripe Customer, then returns a checkout URL. Requires `STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID`.
   - `stripe-webhook` — receives Stripe webhook events (verified via `STRIPE_WEBHOOK_SECRET`). Grants Pro (`is_pro = true`, saves `stripe_customer_id` + `stripe_subscription_id`) on `checkout.session.completed`; confirms on `invoice.paid`; revokes Pro and clears IDs on `customer.subscription.deleted`. No JWT auth — Stripe signs the request directly.
-  - `cancel-subscription` — sets `cancel_at_period_end = true` on the user's Stripe subscription (cancels at cycle end, not immediately) and sets `stripe_cancel_at_period_end = true` in `profiles` as a UI hint.
+  - `cancel-subscription` — sets `cancel_at_period_end = true` on the user's Stripe subscription (cancels at cycle end, not immediately) and sets `stripe_cancel_at_period_end = true` in `subscriptions` as a UI hint.
 
 ## Database schema
 
-All tables have RLS enabled. `quizzes`, `questions`, and `answers` are creator-scoped (public quizzes are also readable by everyone). `sessions`, `players`, `player_answers`, and `session_question_answers` are open for anonymous play. `profiles` and `starred_quizzes` are owner-scoped.
+All tables have RLS enabled. `quizzes`, `questions`, and `answers` are creator-scoped (public quizzes are also readable by everyone). `sessions`, `players`, `session_questions`, and `session_answers` are open for anonymous play. `profiles` and `starred_quizzes` are owner-scoped. `subscriptions` is readable only by the owning user; writes go through `service_role` Edge Functions.
 
 ### `quizzes`
 | column | type | notes |
@@ -64,26 +64,40 @@ All tables have RLS enabled. `quizzes`, `questions`, and `answers` are creator-s
 | column | type | notes |
 |---|---|---|
 | `id` | uuid PK | |
-| `quiz_id` | uuid FK → quizzes | |
+| `quiz_id` | uuid FK → quizzes | cascade delete |
 | `join_code` | text | not null; unique; 6-char uppercase alphanumeric |
-| `state` | text | `'waiting'` → `'active'` → `'finished'` |
-| `current_question_index` | integer | nullable; index into questions |
-| `question_open` | boolean | default true; controls whether the current question accepts answers |
-| `question_opened_at` | timestamptz | nullable; set automatically by trigger when question advances or reopens |
-| `current_question_slots` | jsonb | nullable; array of 4 answer slot assignments sent to players via realtime |
-| `host_secret` | uuid | not null; hidden from all client roles; stored in `localStorage` as `host_secret`; verified by host action RPCs |
+| `state` | text | `'waiting'` → `'asking'` ↔ `'reviewing'` → `'finished'` |
+| `active_question_id` | uuid FK → session_questions | nullable; set by `next_question`, cleared by `end_session` |
+| `host_secret` | uuid | not null; hidden from all client roles via column-level grant; stored in `localStorage`; verified by host RPCs |
 | `created_at` | timestamptz | default now() |
 
-### `session_question_answers`
+### `session_questions`
 | column | type | notes |
 |---|---|---|
 | `id` | uuid PK | |
 | `session_id` | uuid FK → sessions | cascade delete |
-| `question_id` | uuid FK → questions | cascade delete |
-| `slot_index` | integer | 0–3; display position; color is derived from slot_index (0=red, 1=blue, 2=yellow, 3=green) |
-| `answer_id` | uuid FK → answers | which answer this slot maps to |
-| `icon` | text | `'circle'`, `'diamond'`, `'triangle'`, `'square'` |
-| — | unique | `(session_id, question_id, slot_index)` |
+| `question_index` | integer | not null; 0-based; unique per session |
+| `question_text` | text | not null; snapshot copied from `questions` at question-open time |
+| `image_url` | text | nullable; snapshot of `questions.image_url` |
+| `time_limit` | integer | not null; default 30; seconds; 0 = no limit |
+| `points` | integer | not null; default 1000 |
+| `slots` | jsonb | not null; `[{slot_index, answer_id, answer_text}]`; `answer_id` used by `score_question` (SECURITY DEFINER) |
+| `started_at` | timestamptz | not null; set on insert; used to compute `response_time_ms` server-side |
+| `closed_at` | timestamptz | nullable; set by `score_question`; null while question is open |
+| `correct_slot_indices` | jsonb | nullable; `[0, 2]` style array; set by `score_question` when closing |
+| — | unique | `(session_id, question_index)` |
+
+### `session_answers`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `session_question_id` | uuid FK → session_questions | cascade delete |
+| `player_id` | uuid FK → players | cascade delete |
+| `slot_index` | integer | not null; the slot the player chose |
+| `points_earned` | integer | not null; default 0; set by `score_question` |
+| `response_time_ms` | integer | nullable; computed server-side from `session_questions.started_at` |
+| `created_at` | timestamptz | not null; default now() |
+| — | unique | `(session_question_id, player_id)` — one answer per player per question; double-submit raises unique_violation |
 
 ### `players`
 | column | type | notes |
@@ -94,30 +108,23 @@ All tables have RLS enabled. `quizzes`, `questions`, and `answers` are creator-s
 | `score` | integer | not null; default 0 |
 | `streak` | integer | not null; default 0; consecutive correct answers |
 | `correct_count` | integer | not null; default 0; total correct answers |
-| `secret` | uuid | not null; hidden from all client roles; stored in `localStorage` as `player_secret`; verified by `submit_answer` RPC |
+| `player_secret` | uuid | not null; hidden from all client roles via column-level grant; stored in `localStorage`; verified by `submit_answer` |
 | `joined_at` | timestamptz | default now() |
-
-### `player_answers`
-| column | type | notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `player_id` | uuid FK → players | cascade delete |
-| `question_id` | uuid FK → questions | cascade delete |
-| `answer_id` | uuid FK → answers | |
-| `points_earned` | integer | not null; default 0; server-computed time-decayed score for this answer |
-| `response_time_ms` | integer | nullable; milliseconds from question open to answer submission |
-| `created_at` | timestamptz | default now() |
-| — | unique | `(player_id, question_id)` — one answer per player per question |
 
 ### `profiles`
 | column | type | notes |
 |---|---|---|
 | `id` | uuid PK FK → auth.users | cascade delete |
+| `username` | text | nullable; optional display name (max 30 chars) |
+
+### `subscriptions`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK FK → auth.users | cascade delete |
 | `is_pro` | boolean | not null; default false; set by `stripe-webhook` on checkout/renewal, cleared on cancellation; gates image upload and other Pro features |
-| `username` | text | nullable; optional display name |
 | `stripe_customer_id` | text | nullable; Stripe Customer ID, written on first checkout; used to correlate webhook events |
 | `stripe_subscription_id` | text | nullable; active Stripe subscription ID; written on `checkout.session.completed`, cleared on `customer.subscription.deleted` |
-| `stripe_cancel_at_period_end` | boolean | not null; default false; UI hint set to `true` by `cancel-subscription` when the user schedules a cancellation; cleared to `false` when the subscription is actually deleted |
+| `stripe_cancel_at_period_end` | boolean | not null; default false; UI hint set to `true` by `cancel-subscription` when the user schedules a cancellation; cleared to `false` when the subscription is deleted |
 
 ### `starred_quizzes`
 | column | type | notes |
@@ -203,9 +210,7 @@ Migrations are applied in filename order. Each file is named `<YYYYMMDDHHmmss>_<
 
 | File | What it does |
 |---|---|
-| `20260513000000_rls_hardening.sql` | Full squashed schema as of 2026-05-13 — single authoritative migration. Creates all tables, constraints, foreign keys, functions, triggers, RLS policies, realtime publication entries, storage bucket policies, pg_cron jobs (hourly session cleanup + daily orphan-image sweep), and the Stripe FDW RPC |
-| `20260514000000_hide_secret_columns.sql` | Security fix: switches `sessions` and `players` from `GRANT ALL` (table-level) to column-level `SELECT` grants, hiding `sessions.host_secret` and `players.secret` from `anon`/`authenticated` via both REST and Realtime. Also adds explicit auth/ownership guards to `save_quiz` (rejects unauthenticated callers) and `update_quiz` (rejects non-owners). |
-| `20260520000000_drop_color_column.sql` | Drops the redundant `color` column from `session_question_answers` (color is always deterministic from `slot_index`) and updates `assign_answer_slots` accordingly. |
+| `20260420233331_squash.sql` | Full squashed schema — single authoritative migration. Creates all tables, constraints, foreign keys, functions, triggers, RLS policies, column-level grants (hides `host_secret` and `player_secret`), realtime publication entries, storage bucket policies, pg_cron jobs (hourly session cleanup + daily orphan-image sweep), and the Stripe FDW setup. |
 
 ## Quiz export format
 

@@ -195,11 +195,33 @@ CREATE TABLE IF NOT EXISTS "public"."sessions" (
     CONSTRAINT "sessions_quiz_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "public"."quizzes"("id") ON DELETE CASCADE,
     "join_code"  "text" NOT NULL,          -- 6-char uppercase alphanumeric
     CONSTRAINT "sessions_join_code_key" UNIQUE ("join_code"),
-    "state"      "text" DEFAULT 'waiting'::"text" NOT NULL,  -- waiting | asking | reviewing | finished
-    "active_question_id" "uuid" DEFAULT NULL, -- active question
+    -- State machine: waiting → asking → reviewing → asking → … → finished
+    --   waiting   – lobby; players may join; no question open yet
+    --   asking    – a question is live; players can submit answers
+    --   reviewing – question closed; correct answers revealed; host sees results
+    --   finished  – game over; no further transitions allowed
+    "state"      "text" DEFAULT 'waiting'::"text" NOT NULL,
+    "active_question_id" "uuid" DEFAULT NULL, -- FK set after session_questions is created (deferred below)
     "host_secret" "uuid" DEFAULT "gen_random_uuid"() NOT NULL, -- hidden from client roles; verified by host RPCs
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
+ALTER TABLE "public"."sessions" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "sessions_select" ON "public"."sessions" FOR SELECT USING (true);
+-- Column-level grant: the RLS policy above opens the table, but we then tighten
+-- what columns are visible.  A table-level GRANT (Supabase default) can't be
+-- narrowed by a column-level REVOKE, so we revoke the table-level grant first,
+-- then grant only the safe columns.  This hides host_secret from anon/authenticated
+-- via both the REST API and Realtime — the secret never leaves the DB.
+REVOKE SELECT ON "public"."sessions" FROM anon, authenticated;
+GRANT  SELECT (id, state, active_question_id) ON "public"."sessions" TO anon, authenticated;
+-- Enable realtime on the tables that host and player pages subscribe to.
+-- Column lists are restricted to what subscribers actually need; secret columns
+-- (host_secret, player_secret) and unused columns are intentionally omitted.
+-- sessions: host filters on id; both read state + active_question_id.
+-- join_code is intentionally excluded — it must not leak via realtime enumeration.
+-- Play.jsx must look up the session id via REST first, then filter by id.
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."sessions"
+    (id, state, active_question_id);
 
 
 CREATE TABLE IF NOT EXISTS "public"."players" (
@@ -214,6 +236,16 @@ CREATE TABLE IF NOT EXISTS "public"."players" (
     "player_secret"        "uuid" DEFAULT "gen_random_uuid"() NOT NULL, -- hidden from client roles; verified by submit_answer
     "joined_at"     timestamp with time zone DEFAULT "now"() NOT NULL
 );
+ALTER TABLE "public"."players" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "players_select" ON "public"."players" FOR SELECT USING (true);
+-- Same column-level narrowing as sessions: hides player_secret (the submit_answer
+-- token stored in localStorage) from every client role.
+REVOKE SELECT ON "public"."players" FROM anon, authenticated;
+GRANT  SELECT (id, session_id, nickname, score, streak, correct_count, joined_at) ON "public"."players" TO anon, authenticated;
+-- Enable realtime, restricted like above
+-- players: host filters on session_id and reads id + nickname on INSERT.
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."players"
+    (id, session_id, nickname);
 
 
 -- Snapshot of a question as shown to players. Created by next_question RPC;
@@ -239,6 +271,10 @@ CREATE TABLE IF NOT EXISTS "public"."session_questions" (
 ALTER TABLE ONLY "public"."sessions"
     ADD CONSTRAINT "sessions_active_question_id_fkey" FOREIGN KEY ("active_question_id")
     REFERENCES "public"."session_questions"("id") ON DELETE SET NULL;
+ALTER TABLE "public"."session_questions" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "session_questions_select" ON "public"."session_questions" FOR SELECT USING (true);
+-- Realtime for session_questions: no secret columns — publish all for player question rendering.
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."session_questions";
 
 
 -- One row per player per question. Points default 0; set by score_question.
@@ -256,6 +292,12 @@ CREATE TABLE IF NOT EXISTS "public"."session_answers" (
     "response_time_ms"    integer,                        -- ms from started_at to submission
     "created_at"          timestamp with time zone NOT NULL DEFAULT now()
 );
+ALTER TABLE "public"."session_answers" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "session_answers_select" ON "public"."session_answers" FOR SELECT USING (true);
+-- Enable realtime for session_answers: host only counts INSERTs; only session_question_id needed for filter.
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."session_answers"
+    (id, session_question_id);
+
 
 -- -----------------------------------------------------------------------------
 -- User Data Tables
@@ -767,7 +809,11 @@ BEGIN
     v_is_correct := v_rec.slot_index = ANY(v_correct_arr);
 
     IF v_is_correct THEN
-      -- Time-decayed score: 30–100 % of face value based on response speed
+      -- Time-decayed score: points = face_value × (0.3 + 0.7 × (1 − t/T))
+      --   where t = response_time_ms, T = time_limit_ms.
+      --   Fastest possible answer → 100 % of face value.
+      --   Answer at the last millisecond → 30 % of face value (floor).
+      --   No time limit (time_limit = 0) → always 100 %.
       IF v_sq.time_limit > 0 AND v_rec.response_time_ms IS NOT NULL THEN
         v_points_earned := round(
           v_sq.points * (
@@ -779,7 +825,8 @@ BEGIN
       ELSE
         v_points_earned := v_sq.points;
       END IF;
-      -- Streak bonus: +10 % per flame above 2 consecutive correct answers
+      -- Streak bonus: +10 % per consecutive correct answer beyond the second.
+      --   streak=1 or 2 → no bonus; streak=3 → +10 %; streak=4 → +20 %; etc.
       v_new_streak    := v_rec.current_streak + 1;
       v_points_earned := round(v_points_earned * (1.0 + greatest(0, v_new_streak - 2) * 0.10))::integer;
     ELSE
@@ -847,6 +894,9 @@ BEGIN
   IF v_session_state = 'finished' THEN
     RAISE EXCEPTION 'Session has ended';
   END IF;
+  -- Intentionally allows joining while state = 'asking' or 'reviewing'.
+  -- A late joiner misses questions already played but can still participate
+  -- in remaining ones.
 
   INSERT INTO public.players (session_id, nickname)
   VALUES (v_session_id, p_nickname)
@@ -920,7 +970,9 @@ BEGIN
     v_resp_ms := NULL;
   END IF;
 
-  -- points_earned defaults to 0 and is set by score_question
+  -- points_earned defaults to 0 and is set by score_question.
+  -- The UNIQUE constraint on (session_question_id, player_id) prevents double-submit:
+  -- a second call for the same question raises a unique_violation and rolls back.
   INSERT INTO public.session_answers
     (session_question_id, player_id, slot_index, response_time_ms)
   VALUES
@@ -965,6 +1017,8 @@ CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     SET "search_path" TO 'public'
     AS $$
 BEGIN
+  -- ON CONFLICT DO NOTHING guards against the rare case where the trigger fires
+  -- more than once for the same user (e.g. retried auth inserts during sign-up).
   INSERT INTO public.profiles      (id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
   INSERT INTO public.subscriptions (id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
   RETURN NEW;
