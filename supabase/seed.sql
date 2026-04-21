@@ -34,57 +34,40 @@ values
   ('00000000-0000-0000-0002-000000000011', '00000000-0000-0000-0001-000000000003', 2, 'Mercury', true),
   ('00000000-0000-0000-0002-000000000012', '00000000-0000-0000-0001-000000000003', 3, 'Mars',    false);
 
--- Stripe FDW — local dev setup
--- Stores the Stripe test key in vault and completes the FDW server + table
--- creation that the migration skipped (no secret available at migration time).
-DO $$
-DECLARE
-  v_secret_id uuid;
-BEGIN
-  -- The migration's DO block creates stripe_wrapper only when the Rust handler is
-  -- loadable (Supabase managed Postgres). Skip here if it wasn't created.
-  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_foreign_data_wrapper WHERE fdwname = 'stripe_wrapper') THEN
-    RAISE NOTICE 'stripe_wrapper FDW not available; skipping local Stripe FDW setup.';
-    RETURN;
-  END IF;
+-- Create test users
+insert into auth.users (id, email, encrypted_password, aud, role, email_confirmed_at)
+values
+  (
+    '8ba02763-c167-4058-bb85-9dad9a096b28',
+    'test@tobtobxx.net',
+    '$2a$10$r6aXT0bIJP06LYGzfAVlkuddbtY0Ereamj3DNxXyRVvLpNq3jXYFa', -- 123456
+    'authenticated',
+    'authenticated',
+    now()
+  ),
+  (
+    '36d62388-a464-46d3-af33-076bdacddf73',
+    'test-pro@tobtobxx.net',
+    '$2a$10$r6aXT0bIJP06LYGzfAVlkuddbtY0Ereamj3DNxXyRVvLpNq3jXYFa', -- 123456
+    'authenticated',
+    'authenticated',
+    now()
+  );
+insert into auth.identities (provider_id, user_id, identity_data, provider)
+VALUES 
+  (
+    '00000000-0000-0000-0000-000000000001',
+    '8ba02763-c167-4058-bb85-9dad9a096b28',
+    '{"sub": "8ba02763-c167-4058-bb85-9dad9a096b28"}',
+    'email'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '36d62388-a464-46d3-af33-076bdacddf73',
+    '{"sub": "36d62388-a464-46d3-af33-076bdacddf73"}',
+    'email'
+  );
+update public.subscriptions
+  set is_pro = true
+  where id = '36d62388-a464-46d3-af33-076bdacddf73';
 
-  -- Insert the test key only if it isn't already there (idempotent resets)
-  IF NOT EXISTS (SELECT 1 FROM vault.secrets WHERE name = 'stripe_api_key_id') THEN
-    SELECT vault.create_secret(
-      'sk_test_placeholder_replace_via_dashboard',
-      'stripe_api_key_id'
-    ) INTO v_secret_id;
-  ELSE
-    SELECT id INTO v_secret_id FROM vault.secrets WHERE name = 'stripe_api_key_id';
-  END IF;
-
-  -- Create the server if the migration's DO block skipped it
-  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_foreign_server WHERE srvname = 'stripe_server') THEN
-    EXECUTE format(
-      'CREATE SERVER stripe_server FOREIGN DATA WRAPPER stripe_wrapper OPTIONS (api_key_id %L)',
-      v_secret_id::text
-    );
-  END IF;
-
-  CREATE SCHEMA IF NOT EXISTS stripe;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.foreign_tables
-     WHERE foreign_table_schema = 'stripe' AND foreign_table_name = 'subscriptions'
-  ) THEN
-    EXECUTE $sql$
-      CREATE FOREIGN TABLE stripe.subscriptions (
-        id                   text,
-        customer             text,
-        status               text,
-        current_period_start timestamp,
-        current_period_end   timestamp,
-        cancel_at_period_end boolean,
-        attrs                jsonb
-      )
-      SERVER stripe_server
-      OPTIONS (object 'subscriptions', rowid_column 'id')
-    $sql$;
-  END IF;
-END;
-$$;
