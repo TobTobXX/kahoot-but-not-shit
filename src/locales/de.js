@@ -126,11 +126,9 @@ export default {
     allTopics: 'Alle Themen',
   },
   preview: {
-    question: 'Frage {current} / {total}',
+    questionNumber: 'Frage {number}',
     noQuestions: 'Dieses Quiz hat keine Fragen.',
     close: 'Schließen',
-    prev: 'Zurück',
-    next: 'Weiter',
     noTimeLimit: 'Kein Zeitlimit',
     seconds: '{seconds}s',
     points: '{points} Pkt.',

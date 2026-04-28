@@ -6,7 +6,6 @@ import { useI18n } from '../context/I18nContext'
 export default function QuizPreview({ quizId, quizTitle, onClose }) {
   const { t } = useI18n()
   const [questions, setQuestions] = useState(null)
-  const [idx, setIdx] = useState(0)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -24,17 +23,11 @@ export default function QuizPreview({ quizId, quizTitle, onClose }) {
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') { onClose(); return }
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown')
-        setIdx((i) => Math.min(i + 1, (questions?.length ?? 1) - 1))
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
-        setIdx((i) => Math.max(i - 1, 0))
+      if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, questions])
-
-  const question = questions?.[idx]
+  }, [onClose])
 
   return (
     <div
@@ -44,19 +37,12 @@ export default function QuizPreview({ quizId, quizTitle, onClose }) {
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
 
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 gap-4">
-          <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 truncate">{quizTitle}</h2>
-            {questions && questions.length > 0 && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                {t('preview.question').replace('{current}', idx + 1).replace('{total}', questions.length)}
-              </p>
-            )}
-          </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 gap-4 flex-shrink-0">
+          <h2 className="font-bold text-gray-900 truncate">{quizTitle}</h2>
           <button
             onClick={onClose}
             title={t('preview.close')}
-            className="text-gray-400 hover:text-gray-700 p-1 rounded transition-colors flex-shrink-0 mt-0.5"
+            className="text-gray-400 hover:text-gray-700 p-1 rounded transition-colors flex-shrink-0"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -64,8 +50,8 @@ export default function QuizPreview({ quizId, quizTitle, onClose }) {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
+        {/* Scrollable question list */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-8">
           {error && <p className="text-red-400 text-sm">{error}</p>}
           {!questions && !error && (
             <p className="text-gray-400 text-sm text-center py-8">…</p>
@@ -73,8 +59,11 @@ export default function QuizPreview({ quizId, quizTitle, onClose }) {
           {questions?.length === 0 && (
             <p className="text-gray-400 text-sm text-center py-8">{t('preview.noQuestions')}</p>
           )}
-          {question && (
-            <>
+          {questions?.map((question, i) => (
+            <div key={question.id} className="flex flex-col gap-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                {t('preview.questionNumber').replace('{number}', i + 1)}
+              </p>
               {question.image_url && (
                 <img
                   src={question.image_url}
@@ -82,12 +71,12 @@ export default function QuizPreview({ quizId, quizTitle, onClose }) {
                   className="w-full max-h-48 object-cover rounded-xl"
                 />
               )}
-              <p className="text-lg font-semibold text-gray-900 leading-snug">{question.question_text}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {question.answers.map((answer, i) => (
+              <p className="text-base font-semibold text-gray-900 leading-snug">{question.question_text}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {question.answers.map((answer, j) => (
                   <div
                     key={answer.id}
-                    style={{ backgroundColor: SLOT_COLORS[i] ?? '#888' }}
+                    style={{ backgroundColor: SLOT_COLORS[j] ?? '#888' }}
                     className="rounded-xl px-4 py-3 text-white font-medium text-sm leading-snug"
                   >
                     {answer.answer_text}
@@ -102,29 +91,9 @@ export default function QuizPreview({ quizId, quizTitle, onClose }) {
                 </span>
                 <span>{t('preview.points').replace('{points}', question.points)}</span>
               </div>
-            </>
-          )}
+            </div>
+          ))}
         </div>
-
-        {/* Footer nav */}
-        {questions && questions.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-            <button
-              onClick={() => setIdx((i) => Math.max(i - 1, 0))}
-              disabled={idx === 0}
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-colors"
-            >
-              ← {t('preview.prev')}
-            </button>
-            <button
-              onClick={() => setIdx((i) => Math.min(i + 1, questions.length - 1))}
-              disabled={idx === questions.length - 1}
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-colors"
-            >
-              {t('preview.next')} →
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
