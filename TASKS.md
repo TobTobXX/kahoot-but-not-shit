@@ -2,7 +2,6 @@
 
 - Music
 - Preview quizzes.
-- Replace edit/export with icons
 - Handle too long nicks/usernames gracefully
 - Migrate to PocketBase to save on hosting costs?
 - Don't publish answer_id from an active quiz
