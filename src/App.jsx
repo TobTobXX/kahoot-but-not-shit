@@ -10,6 +10,7 @@ import Edit from './pages/Edit'
 import Login from './pages/Login'
 import Profile from './pages/Profile'
 import Join from './pages/Join'
+import Faq from './pages/Faq'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -27,6 +28,7 @@ function AppRoutes() {
       <Route path="/host" element={<Host />} />
       <Route path="/browse" element={<Browse />} />
       <Route path="/join" element={<Join />} />
+      <Route path="/faq" element={<Faq />} />
       <Route path="/play" element={<Play />} />
       <Route
         path="/edit"

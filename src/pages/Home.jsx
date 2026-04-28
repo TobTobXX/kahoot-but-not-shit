@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Header from '../components/Header'
 import { useAuth } from '../context/AuthContext'
@@ -128,6 +128,13 @@ export default function Home() {
         >
           {t('footer.donate')}
         </button>
+        <span className='text-gray-300'>|</span>
+        <Link
+          to='/faq'
+          className='text-sm text-gray-500 hover:text-gray-700 transition-colors'
+        >
+          {t('faq.title')}
+        </Link>
       </div>
 
     </div>
